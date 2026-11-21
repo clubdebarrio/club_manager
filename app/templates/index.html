@@ -1,0 +1,293 @@
+{% extends "base.html" %} {% block title %}Inicio - Club Manager{% endblock %}
+{% block content %} {% set u = usuario_actual %} {% set ver_caja = u and
+u.puede_ver('caja') %} {% set ver_socios = u and u.puede_ver('socios') %} {% set
+ver_cuotas = u and u.puede_ver('cuotas') %} {% set ver_instalaciones = u and
+u.puede_ver('instalaciones') %} {% set ver_reservas = u and
+u.puede_ver('reservas') %} {% set n_reservas =
+proximas_reservas|default([])|length %} {% set n_cuotas =
+proximas_cuotas|default([])|length %} {% set meses =
+['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'] %} {#
+Mové este <link /> al bloque de
+<head>
+  de tu base.html si tenés uno (ej. extra_css) #}
+  <link
+    rel="stylesheet"
+    href="{{ url_for('static', filename='css/dashboard.css') }}"
+  />
+
+  <div class="dash">
+    {# ---------- Hero: saldo de caja + acciones ---------- #}
+    <header class="dash-hero{% if not ver_caja %} dash-hero--solo{% endif %}">
+      <div>
+        <h1 class="dash-hero__title">Panel general</h1>
+        <p class="dash-hero__sub">
+          {% if n_reservas or n_cuotas %} Hoy tenés {{ n_reservas }} reserva{{
+          's' if n_reservas != 1 else '' }} y {{ n_cuotas }} cuota{{ 's' if
+          n_cuotas != 1 else '' }} por vencer. {% else %} Socios, cuotas, caja y
+          reservas del club en un solo lugar. {% endif %}
+        </p>
+        <div class="dash-hero__actions">
+          {% if ver_reservas %}
+          <a
+            href="{{ url_for('reservas.nueva') }}"
+            class="dash-btn dash-btn--gold"
+          >
+            <i class="fas fa-calendar-plus" aria-hidden="true"></i> Nueva
+            reserva
+          </a>
+          {% endif %} {% if ver_socios %}
+          <a
+            href="{{ url_for('socios.crear') }}"
+            class="dash-btn dash-btn--ghost"
+          >
+            <i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo socio
+          </a>
+          {% endif %} {% if ver_caja %}
+          <a
+            href="{{ url_for('caja.index') }}"
+            class="dash-btn dash-btn--ghost"
+          >
+            <i class="fas fa-cash-register" aria-hidden="true"></i> Ver caja
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if ver_caja %}
+      <div class="dash-balance">
+        <p class="dash-balance__label">Saldo en caja</p>
+        <p class="dash-balance__value num">{{ saldo_caja|pesos }}</p>
+        <p class="dash-balance__hint">Suma de las cuentas activas</p>
+      </div>
+      {% endif %}
+    </header>
+
+    {# ---------- Indicadores ---------- #}
+    <section class="dash-stats" aria-label="Resumen general">
+      {% if ver_socios %}
+      <div class="dash-stat">
+        <span class="dash-ico" aria-hidden="true"
+          ><i class="fas fa-users"></i
+        ></span>
+        <div>
+          <p class="dash-stat__value num">{{ activos|default(0) }}</p>
+          <p class="dash-stat__label">Socios activos</p>
+        </div>
+      </div>
+      {% endif %} {% if ver_cuotas %}
+      <div class="dash-stat">
+        <span class="dash-ico dash-ico--blue" aria-hidden="true"
+          ><i class="fas fa-receipt"></i
+        ></span>
+        <div>
+          <p class="dash-stat__value num">{{ cuotas_pendientes|default(0) }}</p>
+          <p class="dash-stat__label">Cuotas pendientes</p>
+        </div>
+      </div>
+      <div class="dash-stat">
+        <span class="dash-ico dash-ico--amber" aria-hidden="true"
+          ><i class="fas fa-clock"></i
+        ></span>
+        <div>
+          <p class="dash-stat__value num">{{ n_cuotas }}</p>
+          <p class="dash-stat__label">Vencen en 7 días</p>
+        </div>
+      </div>
+      {% endif %} {% if ver_reservas %}
+      <div class="dash-stat">
+        <span class="dash-ico dash-ico--rose" aria-hidden="true"
+          ><i class="fas fa-calendar-check"></i
+        ></span>
+        <div>
+          <p class="dash-stat__value num">{{ reservas_activas|default(0) }}</p>
+          <p class="dash-stat__label">Reservas activas</p>
+        </div>
+      </div>
+      {% endif %} {% if ver_instalaciones %}
+      <div class="dash-stat">
+        <span class="dash-ico" aria-hidden="true"
+          ><i class="fas fa-building"></i
+        ></span>
+        <div>
+          <p class="dash-stat__value num">
+            {{ total_instalaciones|default(0) }}
+          </p>
+          <p class="dash-stat__label">Instalaciones</p>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+
+    <div class="dash-cols">
+      <div class="dash-stack">
+        {# ---------- Próximas reservas ---------- #} {% if ver_reservas %}
+        <section class="dash-panel" aria-label="Próximas reservas">
+          <div class="dash-panel__head">
+            <h2>Próximas reservas</h2>
+            <a href="{{ url_for('reservas.listar') }}">Ver todas</a>
+          </div>
+          {% for reserva in proximas_reservas|default([]) %}
+          <div class="dash-row">
+            {% if reserva.fecha_inicio %}
+            <div class="dash-date" aria-hidden="true">
+              <b class="num">{{ reserva.fecha_inicio.day }}</b>
+              <span>{{ meses[reserva.fecha_inicio.month - 1] }}</span>
+            </div>
+            {% endif %}
+            <div class="dash-row__main">
+              <strong class="dash-row__title"
+                >{{ reserva.instalacion.nombre|default('—', true) }}</strong
+              >
+              <span class="dash-row__meta">
+                {% if reserva.socio %}
+                  {{ reserva.socio.nombre }} {{ reserva.socio.apellido }}
+                {% else %}
+                  No Socio
+                {% endif %}
+              </span>
+            </div>
+            {% if reserva.fecha_inicio %}
+            <span class="dash-pill num"
+              >{{ reserva.fecha_inicio.strftime('%H:%M') }} hs</span
+            >
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="dash-empty">
+            <i class="fas fa-calendar-check" aria-hidden="true"></i>
+            <p>No hay reservas próximas.</p>
+            <a href="{{ url_for('reservas.nueva') }}">Crear una reserva</a>
+          </div>
+          {% endfor %}
+        </section>
+        {% endif %} {# ---------- Cuotas por vencer ---------- #} {% if
+        ver_cuotas %}
+        <section class="dash-panel" aria-label="Cuotas por vencer">
+          <div class="dash-panel__head">
+            <h2>Cuotas por vencer</h2>
+            <a href="{{ url_for('cuotas.listar') }}">Ver cuotas</a>
+          </div>
+          {% for cuota in proximas_cuotas|default([]) %}
+          <div class="dash-row">
+            <span class="dash-avatar" aria-hidden="true"
+              >{{ (cuota.socio.apellido|default('?', true))[0]|upper }}</span
+            >
+            <div class="dash-row__main">
+              <strong class="dash-row__title"
+                >{{ cuota.socio.apellido|default('—', true) }}</strong
+              >
+              <span class="dash-row__meta"
+                >{{ cuota.periodo|default('—', true) }} · pendiente de
+                pago</span
+              >
+            </div>
+            <span class="dash-pill dash-pill--warn num"
+              >{{ cuota.monto|pesos }}</span
+            >
+          </div>
+          {% else %}
+          <div class="dash-empty">
+            <i class="fas fa-check-circle" aria-hidden="true"></i>
+            <p>No hay cuotas por vencer en los próximos días.</p>
+          </div>
+          {% endfor %}
+        </section>
+        {% endif %}
+      </div>
+
+      {# ---------- Accesos rápidos ---------- #}
+      <aside class="dash-stack" aria-label="Accesos rápidos">
+        <section class="dash-panel">
+          <div class="dash-panel__head">
+            <h2>Accesos rápidos</h2>
+          </div>
+          {% if ver_caja %}
+          <a class="dash-row dash-row--link" href="{{ url_for('caja.index') }}">
+            <span class="dash-ico" aria-hidden="true"
+              ><i class="fas fa-cash-register"></i
+            ></span>
+            <span class="dash-row__main">
+              <strong class="dash-row__title">Caja</strong>
+              <span class="dash-row__meta">Saldos y movimientos</span>
+            </span>
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </a>
+          {% endif %} {% if ver_socios %}
+          <a
+            class="dash-row dash-row--link"
+            href="{{ url_for('socios.listar') }}"
+          >
+            <span class="dash-ico" aria-hidden="true"
+              ><i class="fas fa-users"></i
+            ></span>
+            <span class="dash-row__main">
+              <strong class="dash-row__title">Socios</strong>
+              <span class="dash-row__meta"
+                >{{ activos|default(0) }} activos en el padrón</span
+              >
+            </span>
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </a>
+          {% endif %} {% if ver_cuotas %}
+          <a
+            class="dash-row dash-row--link"
+            href="{{ url_for('cuotas.listar') }}"
+          >
+            <span class="dash-ico dash-ico--blue" aria-hidden="true"
+              ><i class="fas fa-receipt"></i
+            ></span>
+            <span class="dash-row__main">
+              <strong class="dash-row__title">Cuotas</strong>
+              <span class="dash-row__meta"
+                >{{ cuotas_pendientes|default(0) }} pendientes de pago</span
+              >
+            </span>
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </a>
+          {% endif %} {% if ver_instalaciones %}
+          <a
+            class="dash-row dash-row--link"
+            href="{{ url_for('instalaciones.listar') }}"
+          >
+            <span class="dash-ico" aria-hidden="true"
+              ><i class="fas fa-building"></i
+            ></span>
+            <span class="dash-row__main">
+              <strong class="dash-row__title">Instalaciones</strong>
+              <span class="dash-row__meta"
+                >{{ total_instalaciones|default(0) }} espacios disponibles</span
+              >
+            </span>
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </a>
+          {% endif %} {% if ver_reservas %}
+          <a
+            class="dash-row dash-row--link"
+            href="{{ url_for('reservas.listar') }}"
+          >
+            <span class="dash-ico dash-ico--rose" aria-hidden="true"
+              ><i class="fas fa-calendar-check"></i
+            ></span>
+            <span class="dash-row__main">
+              <strong class="dash-row__title">Reservas</strong>
+              <span class="dash-row__meta"
+                >{{ reservas_activas|default(0) }} activas desde hoy</span
+              >
+            </span>
+            <i class="fas fa-chevron-right" aria-hidden="true"></i>
+          </a>
+          {% endif %}
+        </section>
+
+        <p class="dash-note">
+          <i class="fas fa-shield-halved" aria-hidden="true"></i>
+          <span
+            >Ves solo las secciones habilitadas para tu usuario. Si te falta
+            alguna, pedile acceso a un administrador.</span
+          >
+        </p>
+      </aside>
+    </div>
+  </div>
+  {% endblock %}
+</head>

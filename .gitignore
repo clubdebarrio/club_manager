@@ -1,0 +1,16 @@
+.env
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Backups
+backups/
+backup_keys/
+*.dump.age
+*.sha256
+.env.local
+
+.env.supabase
+backups_supabase/

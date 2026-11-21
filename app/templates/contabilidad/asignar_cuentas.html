@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Asignar Cuentas Contables a Bancos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Asignar Cuentas Contables a Cuentas Bancarias</h1>
+        <p class="sub">Vinculá cada cuenta bancaria con su cuenta contable.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<form method="POST">
+    <div class="tabla-wrap">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Cuenta Bancaria</th>
+                        <th>Tipo</th>
+                        <th>Cuenta Contable Asociada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in cuentas_data %}
+                    <tr>
+                        <td>{{ item.cuenta.nombre }}</td>
+                        <td>{{ item.cuenta.tipo|capitalize }}</td>
+                        <td>
+                            <select name="cuenta_contable_{{ item.cuenta.id }}" class="form-select">
+                                <option value="0">Seleccionar</option>
+                                {% for opcion in item.opciones %}
+                                <option value="{{ opcion.id }}" {% if item.seleccionada == opcion.id %}selected{% endif %}>
+                                    {{ opcion.codigo }} - {{ opcion.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="3">
+                            <div class="empty">No hay cuentas bancarias.</div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Guardar Asignaciones</button>
+        <a href="{{ url_for('contabilidad.index') }}" class="btn btn-secondary">Volver</a>
+    </div>
+</form>
+{% endblock %}

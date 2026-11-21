@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Socios dados de baja{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Socios dados de baja</h1>
+        <p class="sub">Socios inactivos del padrón, con opción de reactivarlos.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('socios.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver a socios activos
+        </a>
+    </div>
+</div>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th class="text-end">Nro. Socio</th>
+                    <th>Apellido</th>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Fecha de baja</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for socio in socios %}
+                <tr>
+                    <td class="text-end num">{{ socio.numero_socio }}</td>
+                    <td>{{ socio.apellido }}</td>
+                    <td>{{ socio.nombre }}</td>
+                    <td>{{ socio.tipo_documento }}: {{ socio.nro_documento }}</td>
+                    <td>{{ socio.fecha_baja.strftime('%d/%m/%Y %H:%M') }}</td>
+                    <td class="text-end">
+                        <div class="table-actions">
+                            <a href="{{ url_for('socios.detalle', id=socio.id) }}" class="btn btn-sm btn-secondary btn-icon" title="Ver detalle">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <form action="{{ url_for('socios.reactivar', id=socio.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Reactivar">
+                                    <i class="fas fa-undo"></i> Reactivar
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty">
+                            <i class="fas fa-user-slash" aria-hidden="true"></i>
+                            No hay socios dados de baja.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

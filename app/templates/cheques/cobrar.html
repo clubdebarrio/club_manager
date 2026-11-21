@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Cobrar Cheque #{{ cheque.numero }}{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Cobrar Cheque #{{ cheque.numero }}</h1>
+        <p class="sub">Acreditá el cheque en la cuenta bancaria elegida.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('cheques.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="detail-list">
+            <dt>Banco emisor</dt>
+            <dd>{{ cheque.banco_emisor }}</dd>
+            <dt>Titular</dt>
+            <dd>{{ cheque.titular }}</dd>
+            <dt>Monto</dt>
+            <dd class="num">{{ cheque.monto|pesos }}</dd>
+            <dt>Fecha de cobro pactada</dt>
+            <dd>{{ cheque.fecha_cobro.strftime('%d/%m/%Y') }}</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        {{ form.hidden_tag() if form }}
+        <h2 class="section-title">Datos del cobro</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Cuenta bancaria destino</label>
+                <select name="id_cuenta" class="form-select" required>
+                    <option value="">— Elegir —</option>
+                    {% for c in cuentas %}
+                        <option value="{{ c.id }}">{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+                <small class="form-text text-muted">El cheque se acreditará en esta cuenta al 1.1.6.</small>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Fecha de cobro</label>
+                <input type="date" name="fecha_cobro" class="form-control"
+                       value="{{ cheque.fecha_cobro.strftime('%Y-%m-%d') }}" required>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-success">Confirmar Cobro</button>
+            <a href="{{ url_for('cheques.listar') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

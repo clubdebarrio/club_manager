@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Calendario de Reservas{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet">
+{{ super() }}
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Calendario de Reservas</h1>
+        <p class="sub">Vista mensual, semanal y diaria de las reservas registradas.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('reservas.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-list" aria-hidden="true"></i> Ver listado
+        </a>
+        {% if usuario_actual and usuario_actual.puede_editar('reservas') %}
+        <a href="{{ url_for('reservas.nueva') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus" aria-hidden="true"></i> Nueva Reserva
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<section class="card cm-cal" aria-labelledby="calTitle">
+    <div class="cm-cal__head">
+        <div class="cm-cal__bar">
+            <div class="cm-cal__nav" role="group" aria-label="Navegar entre períodos">
+                <button type="button" class="btn btn-secondary btn-sm cm-cal__icon" id="calPrev" aria-label="Período anterior">
+                    <i class="fas fa-chevron-left" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm cm-cal__icon" id="calNext" aria-label="Período siguiente">
+                    <i class="fas fa-chevron-right" aria-hidden="true"></i>
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm cm-cal__today" id="calToday">Hoy</button>
+            </div>
+
+            <h2 class="cm-cal__title" id="calTitle" aria-live="polite">Reservas</h2>
+
+            <div class="seg cm-cal__views" role="radiogroup" aria-label="Vista del calendario">
+                <label>
+                    <input type="radio" name="calView" value="dayGridMonth" checked>
+                    <span>Mes</span>
+                </label>
+                <label>
+                    <input type="radio" name="calView" value="timeGridWeek">
+                    <span>Semana</span>
+                </label>
+                <label>
+                    <input type="radio" name="calView" value="timeGridDay">
+                    <span>Día</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="cm-cal__meta">
+            <ul class="cm-cal__legend" aria-label="Estado de las reservas">
+                <li><span class="cm-cal__dot cm-cal__dot--ok" aria-hidden="true"></span>Confirmada</li>
+                <li><span class="cm-cal__dot cm-cal__dot--pend" aria-hidden="true"></span>Pendiente</li>
+                <li><span class="cm-cal__dot cm-cal__dot--done" aria-hidden="true"></span>Finalizada</li>
+            </ul>
+            <div class="cm-cal__state">
+                <span class="cm-cal__status" id="calStatus" role="status" aria-live="polite">Cargando reservas…</span>
+                <button type="button" class="btn btn-secondary btn-sm d-none" id="calRetry">Reintentar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="cm-cal__canvas">
+        <div id="calendar"></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/locales/es.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calEl = document.getElementById('calendar');
+    if (!calEl) return;
+
+    var tarjeta = calEl.closest('.cm-cal');
+    var tituloEl = document.getElementById('calTitle');
+    var estadoEl = document.getElementById('calStatus');
+    var reintentarBtn = document.getElementById('calRetry');
+    var anteriorBtn = document.getElementById('calPrev');
+    var siguienteBtn = document.getElementById('calNext');
+    var hoyBtn = document.getElementById('calToday');
+
+    var ESTADOS = {
+        confirmada: { clase: 'cm-ev-item--ok', etiqueta: 'Confirmada' },
+        pendiente: { clase: 'cm-ev-item--pend', etiqueta: 'Pendiente' },
+        finalizada: { clase: 'cm-ev-item--done', etiqueta: 'Finalizada' },
+        cancelada: { clase: 'cm-ev-item--done', etiqueta: 'Cancelada' }
+    };
+
+    var URL_EVENTOS = '{{ url_for("reservas.api_eventos") }}';
+    // <int:id> exige un entero: se genera con 0 y se sustituye el segmento
+    // final al hacer clic sobre un evento.
+    var URL_DETALLE = {{ url_for('reservas.detalle', id=0)|tojson }};
+
+    function urlDetalle(id) {
+        return URL_DETALLE.replace(/\/0$/, '/' + id);
+    }
+
+    function estadoDe(valor) {
+        return ESTADOS[valor] || { clase: 'cm-ev-item--done', etiqueta: 'Sin estado' };
+    }
+
+    // Cuenta solo los eventos caídos dentro del rango visible de la vista
+    // (activeStart..activeEnd); getEvents() devuelve los del calendario entero.
+    function eventosEnPeriodo(eventos) {
+        var vista = calendar && calendar.view;
+        if (!vista) return eventos.length;
+        var desde = vista.activeStart;
+        var hasta = vista.activeEnd;
+        return eventos.filter(function(ev) {
+            if (!ev.start) return false;
+            var fin = ev.end || ev.start;
+            return ev.start < hasta && fin > desde;
+        }).length;
+    }
+
+    function anunciarEstado() {
+        if (huboError) return;
+        mostrarEstado(
+            eventosEnPeriodo(calendar.getEvents()) ? '' : 'Sin reservas en este período.',
+            false
+        );
+    }
+
+    var huboError = false;
+    var cargando = false;
+    var altoActual = 'auto';
+    var ultimaVista = null;
+
+    function mostrarEstado(texto, esError) {
+        estadoEl.textContent = texto || '';
+        estadoEl.classList.toggle('is-error', !!esError);
+        reintentarBtn.classList.toggle('d-none', !esError);
+    }
+
+    function ajustarAlto(vista) {
+        var esVistaHoraria = vista.type.indexOf('timeGrid') === 0;
+        var esAngosto = window.matchMedia('(max-width: 767.98px)').matches;
+        var alto = esVistaHoraria ? (esAngosto ? 520 : 660) : 'auto';
+
+        if (alto !== altoActual) {
+            altoActual = alto;
+            calendar.setOption('height', alto);
+
+            if (esVistaHoraria) {
+                requestAnimationFrame(function() {
+                    calendar.scrollToTime('06:00:00');
+                });
+            }
+        }
+    }
+
+    function centrarEnHoy(tipo) {
+        if (ultimaVista === tipo) return;
+        ultimaVista = tipo;
+        if (!window.matchMedia('(max-width: 767.98px)').matches) return;
+
+        requestAnimationFrame(function() {
+            var lienzo = document.querySelector('.cm-cal__canvas');
+            var hoy = calEl.querySelector('.fc-day-today');
+            if (!lienzo || !hoy || lienzo.scrollWidth <= lienzo.clientWidth) return;
+
+            var cajaLienzo = lienzo.getBoundingClientRect();
+            var cajaHoy = hoy.getBoundingClientRect();
+            var destino = lienzo.scrollLeft + (cajaHoy.left - cajaLienzo.left)
+                - Math.max(0, (lienzo.clientWidth - cajaHoy.width) / 2);
+
+            lienzo.scrollLeft = Math.max(0, destino);
+        });
+    }
+
+    var calendar = new FullCalendar.Calendar(calEl, {
+        locale: 'es',
+        initialView: 'dayGridMonth',
+        headerToolbar: false,
+        height: 'auto',
+        nowIndicator: true,
+        dayMaxEvents: 3,
+        moreLinkHint: function(cantidad) {
+            return cantidad === 1 ? 'Ver 1 reserva más' : 'Ver ' + cantidad + ' reservas más';
+        },
+        // En pantallas chicas "+N más" abre el día completo; en desktop
+        // se mantiene el popover con la lista de reservas.
+        moreLinkClick: function() {
+            return window.matchMedia('(max-width: 767.98px)').matches ? 'timeGridDay' : 'popover';
+        },
+        eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+        events: function(info, successCallback, failureCallback) {
+            fetch(URL_EVENTOS, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function(respuesta) {
+                    if (!respuesta.ok) throw new Error('HTTP ' + respuesta.status);
+                    return respuesta.json();
+                })
+                .then(successCallback)
+                .catch(function(error) {
+                    huboError = true;
+                    mostrarEstado('No se pudieron cargar las reservas.', true);
+                    failureCallback(error);
+                });
+        },
+        loading: function(estaCargando) {
+            cargando = estaCargando;
+            if (estaCargando) {
+                huboError = false;
+                mostrarEstado('Cargando reservas…', false);
+            } else if (!huboError) {
+                // Al terminar la carga recién ahí sabemos si el período quedó vacío.
+                anunciarEstado();
+            }
+        },
+        eventsSet: function() {
+            // Durante una carga los eventos pueden llegar vacíos: no anunciar "sin reservas".
+            if (cargando || huboError) return;
+            anunciarEstado();
+        },
+        datesSet: function(info) {
+            tituloEl.textContent = info.view.title;
+            tarjeta.setAttribute('data-view', info.view.type);
+
+            var vistas = document.querySelectorAll('input[name="calView"]');
+            for (var i = 0; i < vistas.length; i++) {
+                vistas[i].checked = vistas[i].value === info.view.type;
+            }
+
+            ajustarAlto(info.view);
+            centrarEnHoy(info.view.type);
+        },
+        eventClassNames: function(arg) {
+            return [estadoDe(arg.event.extendedProps.estado).clase];
+        },
+        eventContent: function(arg) {
+            var estado = estadoDe(arg.event.extendedProps.estado);
+            var contenido = document.createElement('div');
+            contenido.className = 'cm-ev';
+
+            var punto = document.createElement('span');
+            punto.className = 'cm-ev__dot';
+            punto.setAttribute('aria-hidden', 'true');
+            contenido.appendChild(punto);
+
+            if (arg.timeText) {
+                var hora = document.createElement('span');
+                hora.className = 'cm-ev__time';
+                hora.textContent = arg.timeText;
+                contenido.appendChild(hora);
+            }
+
+            var titulo = document.createElement('span');
+            titulo.className = 'cm-ev__title';
+            titulo.textContent = arg.event.title;
+            contenido.appendChild(titulo);
+
+            var estadoLector = document.createElement('span');
+            estadoLector.className = 'visually-hidden';
+            estadoLector.textContent = estado.etiqueta;
+            contenido.appendChild(estadoLector);
+
+            return { domNodes: [contenido] };
+        },
+        eventDidMount: function(arg) {
+            arg.el.setAttribute('role', 'link');
+            arg.el.setAttribute(
+                'title',
+                arg.event.title + ' · ' + estadoDe(arg.event.extendedProps.estado).etiqueta
+            );
+        },
+        eventClick: function(info) {
+            // Redirigir al detalle de la reserva
+            window.location.href = urlDetalle(info.event.id);
+        }
+    });
+
+    if (anteriorBtn) anteriorBtn.addEventListener('click', function() { calendar.prev(); });
+    if (siguienteBtn) siguienteBtn.addEventListener('click', function() { calendar.next(); });
+    if (hoyBtn) hoyBtn.addEventListener('click', function() { calendar.today(); });
+
+    var vistas = document.querySelectorAll('input[name="calView"]');
+    for (var j = 0; j < vistas.length; j++) {
+        vistas[j].addEventListener('change', function() {
+            if (this.checked) calendar.changeView(this.value);
+        });
+    }
+
+    if (reintentarBtn) {
+        reintentarBtn.addEventListener('click', function() {
+            mostrarEstado('Reintentando…', false);
+            calendar.refetchEvents();
+        });
+    }
+
+    calendar.render();
+});
+</script>
+{% endblock %}

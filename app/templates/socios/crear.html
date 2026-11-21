@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Socio{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Nuevo Socio</h1>
+        <p class="sub">Club: <strong>{{ empresa.nombre }}</strong> (CUIT: {{ empresa.cuit }})</p>
+    </div>
+</div>
+
+{% if form.errors %}
+    <div class="alert alert-danger">
+        <strong>Por favor corrige los siguientes errores:</strong>
+        <ul>
+            {% for field, errors in form.errors.items() %}
+                {% for error in errors %}
+                    <li>{{ form[field].label.text }}: {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    </div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('socios.crear') }}" class="needs-validation" novalidate>
+    {{ form.hidden_tag() }}
+    {{ form.id_empresa() }}
+
+    <div class="form-card">
+        <h2 class="section-title"><i class="fas fa-user" aria-hidden="true"></i> Datos personales</h2>
+        <p class="section-sub">Completá los datos de contacto y documentación del socio.</p>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.apellido.label(class="form-label") }}
+                {{ form.apellido(class="form-control" + (" is-invalid" if form.apellido.errors else "")) }}
+                {% for error in form.apellido.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for error in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.tipo_documento.label(class="form-label") }}
+                {{ form.tipo_documento(class="form-select" + (" is-invalid" if form.tipo_documento.errors else "")) }}
+                {% for error in form.tipo_documento.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.nro_documento.label(class="form-label") }}
+                {{ form.nro_documento(class="form-control" + (" is-invalid" if form.nro_documento.errors else "")) }}
+                {% for error in form.nro_documento.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.telefono.label(class="form-label") }}
+                {{ form.telefono(class="form-control" + (" is-invalid" if form.telefono.errors else "")) }}
+                {% for error in form.telefono.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else "")) }}
+                {% for error in form.email.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.id_familia.label(class="form-label") }}
+                {{ form.id_familia(class="form-select" + (" is-invalid" if form.id_familia.errors else ""), id="id_familia_select") }}
+                {% for error in form.id_familia.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+                <small class="form-text text-muted" id="familia-info">
+                    Selecciona una familia para asignar este socio como integrante. Los campos de tipo y categoría se autocompletarán.
+                </small>
+            </div>
+        </div>
+
+        <div class="form-check my-3">
+            {% if empresa_actual and empresa_actual.puede_usar_chytapay %}
+                {{ form.enviar_cuota_whatsapp(class="form-check-input") }}
+                {{ form.enviar_cuota_whatsapp.label(class="form-check-label") }}
+                <small class="form-text text-muted d-block">
+                    Se genera automáticamente un link de pago digital.
+                </small>
+            {% else %}
+                <input class="form-check-input" type="checkbox" disabled
+                    id="enviar_cuota_whatsapp_disabled">
+                <label class="form-check-label text-muted"
+                    for="enviar_cuota_whatsapp_disabled">
+                    <i class="fas fa-lock me-1"></i>
+                    Enviar cuota por WhatsApp al generar
+                </label>
+                <small class="form-text text-muted d-block">
+                    No disponible en el período de prueba.
+                </small>
+                {# Campo oculto para no perder el valor actual si es edición #}
+                <input type="hidden" name="enviar_cuota_whatsapp"
+                    value="{{ 'y' if form.enviar_cuota_whatsapp.data else '' }}">
+            {% endif %}
+        </div>
+
+        <h2 class="section-title mt-4"><i class="fas fa-tags" aria-hidden="true"></i> Clasificación</h2>
+        <p class="section-sub">Tipo y categoría del socio dentro del padrón.</p>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.id_tipo_socio.label(class="form-label") }}
+                {{ form.id_tipo_socio(class="form-select" + (" is-invalid" if form.id_tipo_socio.errors else "")) }}
+                {% for error in form.id_tipo_socio.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.id_categoria_socio.label(class="form-label") }}
+                {{ form.id_categoria_socio(class="form-select" + (" is-invalid" if form.id_categoria_socio.errors else "")) }}
+                {% for error in form.id_categoria_socio.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- NUEVO: Sección de Adicionales -->
+        <h2 class="section-title mt-4"><i class="fas fa-star" aria-hidden="true"></i> Adicionales y Actividades</h2>
+        <p class="section-sub">Seleccioná los adicionales que abona este socio (ej. Inglés, Fútbol).</p>
+        
+        <div class="row g-3 mb-3">
+            <div class="col-md-12">
+                <div class="card bg-light border-0">
+                    <div class="card-body">
+                        <div class="row">
+                            {% for subfield in form.adicionales %}
+                            <div class="col-md-4 mb-2">
+                                <div class="form-check">
+                                    {{ subfield(class="form-check-input") }}
+                                    {{ subfield.label(class="form-check-label") }}
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="col-12 text-muted small">No hay adicionales cargados en el sistema.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-info small mt-3">
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            La foto del socio podés cargarla después de guardarlo, desde
+            la pantalla de edición.
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar Socio</button>
+            <a href="{{ url_for('socios.listar') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const familiaSelect = document.getElementById('id_familia');
+    const tipoSelect = document.getElementById('id_tipo_socio');
+    const categoriaSelect = document.getElementById('id_categoria_socio');
+    const familiaInfo = document.getElementById('familia-info');
+
+    function actualizarCamposPorFamilia() {
+        const familiaId = familiaSelect.value;
+        if (familiaId && familiaId !== '0') {
+            fetch(`/api/socios/${familiaId}/datos`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al obtener los datos de la familia.');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Asignar los valores
+                    tipoSelect.value = data.id_tipo_socio;
+                    categoriaSelect.value = data.id_categoria_socio;
+                    // Bloquear los campos visualmente
+                    tipoSelect.disabled = true;
+                    categoriaSelect.disabled = true;
+                    tipoSelect.style.backgroundColor = '#e9ecef';
+                    categoriaSelect.style.backgroundColor = '#e9ecef';
+                    // Cambiar mensaje de ayuda
+                    familiaInfo.textContent = 'Tipo y categoría heredados de la familia seleccionada.';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Mostrar un mensaje de error al usuario
+                    familiaInfo.textContent = 'Error al cargar los datos de la familia. Intente nuevamente.';
+                    familiaInfo.style.color = 'red';
+                });
+        } else {
+            // Si no hay familia, habilitar campos
+            tipoSelect.disabled = false;
+            categoriaSelect.disabled = false;
+            tipoSelect.style.backgroundColor = '';
+            categoriaSelect.style.backgroundColor = '';
+            familiaInfo.textContent = 'Selecciona una familia para asignar este socio como integrante. Los campos de tipo y categoría se autocompletarán.';
+            familiaInfo.style.color = '';
+        }
+    }
+
+    familiaSelect.addEventListener('change', actualizarCamposPorFamilia);
+    // Ejecutar al cargar (por si el formulario se carga con una familia preseleccionada)
+    actualizarCamposPorFamilia();
+});
+{% endblock %}
+</script>

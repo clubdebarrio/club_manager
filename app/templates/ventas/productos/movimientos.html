@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Movimientos de {{ producto.nombre }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div class="d-flex align-items-center gap-3">
+        {% if producto.tiene_foto %}
+            <img src="{{ url_for('ventas.servir_foto_producto', id=producto.id) }}?v={{ producto.foto_actualizada_at.timestamp() }}" 
+                 alt="{{ producto.nombre }}" 
+                 class="rounded shadow-sm border" 
+                 style="width: 70px; height: 70px; object-fit: cover;">
+        {% else %}
+            <div class="bg-light rounded d-flex align-items-center justify-content-center shadow-sm border" 
+                 style="width: 70px; height: 70px;">
+                <i class="fas fa-box fa-2x text-muted"></i>
+            </div>
+        {% endif %}
+        <div>
+            <h1 class="mb-0">{{ producto.nombre }}</h1>
+            <p class="sub mb-0">
+                Kardex de movimientos
+                {% if producto.categoria %}
+                    · <span class="badge bg-secondary">{{ producto.categoria }}</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('ventas.editar_producto', id=producto.id) }}"
+           class="btn btn-secondary">
+            <i class="fas fa-edit"></i> Editar producto
+        </a>
+        <a href="{{ url_for('ventas.listar_productos') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<section class="stat-strip" aria-label="Resumen del producto">
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-boxes-stacked" aria-hidden="true"></i> Stock actual</p>
+        <p class="stat__value">{{ producto.stock_actual }}</p>
+    </div>
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-tag" aria-hidden="true"></i> Precio de venta</p>
+        <p class="stat__value">{{ producto.precio_venta|pesos }}</p>
+    </div>
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-truck" aria-hidden="true"></i> Precio de costo</p>
+        <p class="stat__value">
+            {% if producto.precio_costo %}
+                {{ producto.precio_costo|pesos }}
+            {% else %}
+                —
+            {% endif %}
+        </p>
+    </div>
+</section>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Tipo</th>
+                    <th>Referencia</th>
+                    <th>Detalle</th>
+                    <th class="text-end">Cantidad</th>
+                    <th class="text-end">Precio unit.</th>
+                    <th class="text-end">Importe</th>
+                    <th class="text-end">Saldo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Fila de saldo inicial -->
+                <tr class="total-row">
+                    <td colspan="4"><strong>Saldo inicial</strong></td>
+                    <td class="text-end">—</td>
+                    <td class="text-end">—</td>
+                    <td class="text-end">—</td>
+                    <td class="text-end num">
+                        <strong>{{ saldo_inicial }}</strong>
+                    </td>
+                </tr>
+
+                {% for m in movimientos %}
+                <tr>
+                    <td>{{ m.fecha|localdatetime }}</td>
+                    <td>
+                        {% if m.tipo == 'compra' %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-arrow-down"></i> Compra
+                            </span>
+                        {% elif m.tipo == 'venta' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-arrow-up"></i> Venta
+                            </span>
+                        {% elif m.tipo == 'nota_credito' %}
+                            <span class="badge bg-warning text-dark">
+                                <i class="fas fa-undo"></i> Nota Crédito
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ m.tipo }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ m.referencia }}</td>
+                    <td>{{ m.detalle }}</td>
+                    <td class="text-end num">
+                        {% if m.cantidad > 0 %}
+                            <span class="text-success">+{{ m.cantidad }}</span>
+                        {% else %}
+                            <span class="text-danger">{{ m.cantidad }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end num">{{ m.precio_unitario|pesos }}</td>
+                    <td class="text-end num">{{ m.importe|pesos }}</td>
+                    <td class="text-end num">
+                        <strong>{{ m.saldo }}</strong>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty">
+                            <i class="fas fa-boxes-stacked" aria-hidden="true"></i>
+                            Este producto no tiene movimientos registrados.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

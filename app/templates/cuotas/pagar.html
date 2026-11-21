@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Pagar Cuota{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Registrar Pago de Cuota</h1>
+        <p class="sub">{{ cuota.socio.apellido }}, {{ cuota.socio.nombre }} · período {{ cuota.periodo }}</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('cuotas.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-receipt" aria-hidden="true"></i> Cuota a cobrar</h2>
+            </div>
+            <div class="card-body">
+                <div class="kv">
+                    <span class="k">Socio</span>
+                    <span class="v">{{ cuota.socio.apellido }}, {{ cuota.socio.nombre }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Período</span>
+                    <span class="v">{{ cuota.periodo }}</span>
+                </div>
+                <div class="total-line">
+                    <span>Monto a registrar</span>
+                    <span class="amount">{{ cuota.monto|pesos }}</span>
+                </div>
+
+                <!-- DESGLOSE DE ADICIONALES -->
+                {% if cuota.detalle_adicionales %}
+                <div class="alert alert-light border mt-3 mb-0 py-2 px-3">
+                    <small class="text-muted d-block"><strong>Incluye adicionales:</strong></small>
+                    <small class="text-muted">{{ cuota.detalle_adicionales }}</small>
+                </div>
+                {% endif %}
+                
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <input type="hidden" name="id_cheque" id="id_cheque_origen" value="">
+            <div class="form-card">
+                <h2 class="section-title"><i class="fas fa-cash-register" aria-hidden="true"></i> Datos del pago</h2>
+                <p class="section-sub">La cuenta se filtra según el método elegido. Con cheque se abre el registro del valor.</p>
+                <div class="mb-3">
+                    {{ form.fecha_pago.label(class="form-label") }}
+                    {{ form.fecha_pago(class="form-control" + (" is-invalid" if form.fecha_pago.errors else ""), type="date", value=form.fecha_pago.data.strftime('%Y-%m-%d') if form.fecha_pago.data else '') }}
+                    {% for error in form.fecha_pago.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.metodo_pago.label(class="form-label") }}
+                    {{ form.metodo_pago(class="form-select" + (" is-invalid" if form.metodo_pago.errors else ""), id="metodo_pago") }}
+                    {% for error in form.metodo_pago.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="mb-0">
+                    {{ form.id_cuenta.label(class="form-label") }}
+                    {{ form.id_cuenta(class="form-select" + (" is-invalid" if form.id_cuenta.errors else ""), id="id_cuenta") }}
+                    {% for error in form.id_cuenta.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check" aria-hidden="true"></i> Registrar Pago
+                    </button>
+                    <a href="{{ url_for('cuotas.listar') }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const metodoSelect = document.getElementById('metodo_pago');
+    const cuentaSelect = document.getElementById('id_cuenta');
+    const opcionesOriginales = Array.from(cuentaSelect.options);
+    
+    const cuentasData = [
+        {% for id, nombre, tipo in cuentas_con_tipo %}
+        { id: {{ id }}, nombre: "{{ nombre }}", tipo: "{{ tipo }}" },
+        {% endfor %}
+    ];
+    
+    const tiposPermitidos = {
+        'efectivo': ['efectivo'],
+        'cheque': ['efectivo'],
+        'transferencia': ['banco'],
+        'deposito_efectivo': ['banco'],
+        'deposito_cheque': ['banco'],
+        'debito': ['banco'],
+        'credito': ['banco']
+    };
+    
+    function filtrarCuentas() {
+        const metodo = metodoSelect.value;
+        const tipos = tiposPermitidos[metodo] || [];
+        cuentaSelect.innerHTML = '';
+        opcionesOriginales.forEach(opt => {
+            const id = parseInt(opt.value);
+            const cuenta = cuentasData.find(c => c.id === id);
+            if (cuenta && (tipos.length === 0 || tipos.includes(cuenta.tipo))) {
+                cuentaSelect.appendChild(opt.cloneNode(true));
+            }
+        });
+        if (cuentaSelect.options.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'No hay cuentas compatibles';
+            opt.disabled = true;
+            cuentaSelect.appendChild(opt);
+        }
+    }
+    
+    function manejarSeleccionCheque() {
+        if (metodoSelect.value === 'cheque') {
+            const monto = {{ cuota.monto }};
+            window.abrirModalCheque({
+                monto: monto,
+                tipo: 'recibido',
+                origen: 'cuota',
+                select_target: 'id_cheque_origen'
+            });
+        }
+    }
+
+    metodoSelect.addEventListener('change', function() {
+        filtrarCuentas();
+        manejarSeleccionCheque();
+    });
+    filtrarCuentas();
+    
+    if (metodoSelect.value === 'cheque') {
+        manejarSeleccionCheque();
+    }
+});
+</script>
+{% endblock %}

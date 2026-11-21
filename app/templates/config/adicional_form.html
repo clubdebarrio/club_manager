@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Editar' if adicional else 'Nuevo' }} Adicional{% endblock %}
+{% block content %}
+<h1>{{ 'Editar' if adicional else 'Nuevo' }} Adicional</h1>
+<form method="POST">
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.nombre.label(class="form-label") }}
+        {{ form.nombre(class="form-control", placeholder="Ej: Inglés Niños, Fútbol") }}
+    </div>
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            {{ form.monto.label(class="form-label") }}
+            {{ form.monto(class="form-control money-input", placeholder="0.00", type="text") }}
+        </div>
+        <div class="col-md-3 mb-3">
+            {{ form.fecha_desde.label(class="form-label") }}
+            {{ form.fecha_desde(class="form-control") }}
+        </div>
+        <div class="col-md-3 mb-3">
+            {{ form.fecha_hasta.label(class="form-label") }}
+            {{ form.fecha_hasta(class="form-control") }}
+            <small class="text-muted">Dejar vacío si no vence.</small>
+        </div>
+    </div>    
+    <div class="form-check mb-3">
+        {{ form.activo(class="form-check-input") }}
+        {{ form.activo.label(class="form-check-label") }}
+    </div>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('config.listar_adicionales') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}

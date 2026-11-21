@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Productos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Productos</h1>
+        <p class="sub">Catálogo de productos, precios y control de stock.</p>
+    </div>
+    <div class="actions">
+        {% if usuario_actual and usuario_actual.puede_editar('ventas') %}
+        <a href="{{ url_for('compras.descargar_plantilla_productos') }}"
+           class="btn btn-outline-secondary btn-sm">
+            <i class="fas fa-download"></i> Plantilla
+        </a>
+        <a href="{{ url_for('compras.importar_productos') }}"
+           class="btn btn-secondary btn-sm">
+            <i class="fas fa-file-import"></i> Importar
+        </a>
+        <a href="{{ url_for('ventas.nuevo_producto') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus"></i> Nuevo Producto
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Buscador -->
+<form method="GET" id="form-busqueda" class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-8">
+                <label for="buscador" class="form-label">Buscar producto</label>
+                <input type="text" id="buscador" name="q" class="form-control" 
+                       placeholder="Buscar por nombre del producto..." 
+                       value="{{ query or '' }}" autofocus>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Buscar</button>
+            </div>
+            <div class="col-md-2">
+                <a href="{{ url_for('ventas.listar_productos') }}" class="btn btn-secondary w-100">Limpiar</a>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th style="width: 60px;" class="text-center">Foto</th>
+                    <th>Nombre</th>
+                    <th>Categoría</th>
+                    <th class="text-end">Precio Venta</th>
+                    <th class="text-end">Stock</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in productos %}
+                <tr>
+                    <td class="text-center">
+                        {% if p.tiene_foto %}
+                            <img src="{{ url_for('ventas.servir_foto_producto', id=p.id) }}?v={{ p.foto_actualizada_at.timestamp() }}" 
+                                 alt="{{ p.nombre }}" 
+                                 class="rounded shadow-sm" 
+                                 style="width: 40px; height: 40px; object-fit: cover;">
+                        {% else %}
+                            <div class="bg-light rounded d-flex align-items-center justify-content-center mx-auto shadow-sm" 
+                                 style="width: 40px; height: 40px;">
+                                <i class="fas fa-box text-muted"></i>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>{{ p.nombre }}</td>
+                    <td>{{ p.categoria or '-' }}</td>
+                    <td class="text-end num">{{ p.precio_venta|pesos(0) }}</td>
+                    <td class="text-end">
+                        {{ p.stock_actual }}
+                        {% if p.stock_actual <= p.stock_minimo %}
+                            <span class="badge bg-danger ms-1">Stock bajo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if p.activo else 'secondary' }}">
+                            {{ 'Activo' if p.activo else 'Inactivo' }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        {% if usuario_actual and usuario_actual.puede_editar('ventas') %}
+                        <a href="{{ url_for('ventas.editar_producto', id=p.id) }}"
+                           class="btn btn-sm btn-secondary btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% endif %}
+                        <a href="{{ url_for('ventas.movimientos_producto', id=p.id) }}"
+                           class="btn btn-sm btn-secondary btn-icon" title="Ver movimientos">
+                            <i class="fas fa-history"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7"> <!-- OJO: Cambiado a 7 por la nueva columna -->
+                        <div class="empty">
+                            <i class="fas fa-box" aria-hidden="true"></i>
+                            {% if query %}
+                                No se encontraron productos para "{{ query }}".
+                            {% else %}
+                                No hay productos cargados.
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ render_pagination(pagination, 'ventas.listar_productos', {'q': query or ''}) }}
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador');
+    if (buscador && buscador.value) {
+        buscador.focus();
+        buscador.setSelectionRange(buscador.value.length, buscador.value.length);
+    }
+
+    const form = document.getElementById('form-busqueda');
+    if (buscador && form) {
+        let timeout = null;
+        buscador.addEventListener('input', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => form.submit(), 400);
+        });
+        buscador.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(timeout);
+                form.submit();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

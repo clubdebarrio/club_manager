@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}{% if cuenta %}Editar Cuenta{% else %}Nueva Subcuenta{% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{% if cuenta %}Editar Cuenta{% else %}Nueva Subcuenta{% endif %}</h1>
+        <p class="sub">Datos de la cuenta contable y su ubicación en el plan.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.plan_cuentas') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+{% if padre %}
+<div class="alert alert-info">
+    Se va a crear una subcuenta de
+    <strong>{{ padre.codigo }} - {{ padre.nombre }}</strong>.
+    El código y el tipo se calculan automáticamente.
+</div>
+{% endif %}
+
+<div class="form-card">
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <h2 class="section-title">Datos de la cuenta</h2>
+
+        <div class="row g-3">
+            <div class="col-md-3">
+                {{ form.codigo.label(class="form-label") }}
+                {% if padre or (cuenta and not cuenta.es_hoja) %}
+                    {# Código no editable: subcuenta nueva o cuenta con hijos #}
+                    {{ form.codigo(class="form-control", readonly=True) }}
+                {% else %}
+                    {{ form.codigo(class="form-control" + (" is-invalid" if form.codigo.errors else "")) }}
+                {% endif %}
+                {% for error in form.codigo.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-9">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for error in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-4">
+                {{ form.tipo.label(class="form-label") }}
+                {% if padre %}
+                    {# Tipo heredado del padre: readonly vía pointer-events #}
+                    {{ form.tipo(class="form-select",
+                                 style="pointer-events: none; background-color: #e9ecef;") }}
+                    <small class="form-text text-muted">
+                        Se hereda del padre ({{ padre.tipo }}).
+                    </small>
+                {% else %}
+                    {{ form.tipo(class="form-select" + (" is-invalid" if form.tipo.errors else "")) }}
+                {% endif %}
+                {% for error in form.tipo.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-4">
+                {{ form.id_padre.label(class="form-label") }}
+                {% if padre %}
+                    {# En modo subcuenta el padre es fijo y va oculto #}
+                    <input type="text" class="form-control"
+                           value="{{ padre.codigo }} - {{ padre.nombre }}" readonly>
+                    <div class="d-none">
+                        {{ form.id_padre() }}
+                    </div>
+                {% else %}
+                    {{ form.id_padre(class="form-select" + (" is-invalid" if form.id_padre.errors else "")) }}
+                {% endif %}
+                {% for error in form.id_padre.errors %}
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="col-md-4 d-flex align-items-center">
+                <div class="form-check">
+                    {{ form.activo(class="form-check-input") }}
+                    {{ form.activo.label(class="form-check-label") }}
+                </div>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('contabilidad.plan_cuentas') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

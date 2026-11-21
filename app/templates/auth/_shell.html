@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1c2e28" />
+    <meta name="description" content="Club Manager — gestión integral del club: socios, cuotas, caja, ventas y reservas." />
+    <title>{% block title %}Club Manager{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="{{ url_for('static', filename='css/club.css') }}" rel="stylesheet" />
+</head>
+<body class="auth-body">
+    <div class="auth-shell">
+        <aside class="auth-aside">
+            <a class="auth-brand" href="{{ url_for('main.index') }}">
+                <span class="auth-brand__mark" aria-hidden="true"><i class="fas fa-shield-halved"></i></span>
+                <span>Club Manager</span>
+            </a>
+
+            <div class="auth-aside__body">
+                <h2>{% block aside_title %}Toda la gestión de tu club, en orden.{% endblock %}</h2>
+                <p class="auth-aside__lead">
+                    {% block aside_text %}Socios, cuotas, caja y bancos, tienda, reservas y contabilidad en un mismo sistema.{% endblock %}
+                </p>
+                <ul class="auth-points">
+                    <li><i class="fas fa-check" aria-hidden="true"></i> Padrón de socios y cuotas al día</li>
+                    <li><i class="fas fa-check" aria-hidden="true"></i> Tesorería con contrapartida contable</li>
+                    <li><i class="fas fa-check" aria-hidden="true"></i> Ventas, compras y reservas del club</li>
+                </ul>
+            </div>
+
+            <p class="auth-aside__foot">© Club Manager</p>
+        </aside>
+
+        <main class="auth-main">
+            <div class="auth-card {% block card_class %}{% endblock %}">
+                <div class="auth-card__head">
+                    <h1>{% block heading %}Club Manager{% endblock %}</h1>
+                    <p>{% block sub %}{% endblock %}</p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                <div class="cm-flashes" aria-live="polite">
+                    {% for category, message in messages %}
+                    {% set cat = category if category != 'message' else 'info' %}
+                    <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+                        <i class="fas fa-{{ 'check-circle' if cat == 'success' else 'circle-exclamation' if cat in ['danger', 'warning'] else 'circle-info' }}" aria-hidden="true"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% endwith %}
+
+                {% block content %}{% endblock %}
+
+                {% block foot %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

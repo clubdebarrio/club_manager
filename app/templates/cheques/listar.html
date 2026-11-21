@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Cartera de Cheques{% endblock %}
+
+{% block content %}
+{% set estado_labels = {
+    'en_cartera': 'En cartera',
+    'depositado': 'Depositado',
+    'cobrado': 'Cobrado',
+    'rechazado': 'Rechazado',
+    'vencido': 'Vencido',
+    'pendiente': 'Pendiente',
+    'pagado': 'Descontado',
+    'entregado': 'Entregado',
+    'reemplazado': 'Reemplazado',
+    'pagado_en_efectivo': 'Pagado en efectivo',
+    'cobrado_en_efectivo': 'Cobrado en efectivo',
+} %}
+
+<div class="page-head">
+    <div>
+        <h1>Cartera de Cheques</h1>
+        <p class="sub">Cheques recibidos y emitidos, con su estado y acciones.</p>
+    </div>
+    <div class="actions">
+        {% if ver_todos %}
+            <a href="{{ url_for('cheques.listar', tipo=tipo) }}" class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-filter"></i> Ver solo pendientes
+            </a>
+        {% else %}
+            <a href="{{ url_for('cheques.listar', tipo=tipo, ver_todos='1') }}" class="btn btn-outline-primary btn-sm">
+                <i class="fas fa-list"></i> Ver todos
+            </a>
+        {% endif %}
+        {% if usuario_actual and usuario_actual.puede_editar('cheques') %}
+        <a href="{{ url_for('cheques.nuevo') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus"></i> Nuevo Cheque
+        </a>
+        {% endif %}
+        <a href="{{ url_for('cheques.vencidos') }}" class="btn btn-warning btn-sm">
+            <i class="fas fa-exclamation-triangle"></i> Vencidos
+        </a>
+        <a href="{{ url_for('caja.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if tipo == 'recibido' else '' }}"
+           href="{{ url_for('cheques.listar', tipo='recibido', ver_todos='1' if ver_todos else '0') }}">
+            <i class="fas fa-arrow-down text-success"></i> Recibidos
+            <span class="text-muted small">(cheques de terceros en nuestro poder)</span>
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {{ 'active' if tipo == 'emitido' else '' }}"
+           href="{{ url_for('cheques.listar', tipo='emitido', ver_todos='1' if ver_todos else '0') }}">
+            <i class="fas fa-arrow-up text-danger"></i> Emitidos
+            <span class="text-muted small">(cheques que entregamos)</span>
+        </a>
+    </li>
+</ul>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Banco</th>
+                    <th>Titular</th>
+                    <th class="text-end">Monto</th>
+                    <th>Emisión</th>
+                    <th>Vencimiento</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cheque in cheques %}
+                <tr>
+                    <td class="nowrap">{{ cheque.numero }}</td>
+                    <td>{{ cheque.banco_emisor }}</td>
+                    <td>{{ cheque.titular }}</td>
+                    <td class="text-end num">{{ cheque.monto|pesos(0) }}</td>
+                    <td class="nowrap">{{ cheque.fecha_emision.strftime('%d/%m/%Y') }}</td>
+                    <td class="nowrap">{{ cheque.fecha_cobro.strftime('%d/%m/%Y') if cheque.fecha_cobro else '-' }}</td>
+                    <td>
+                        <span class="badge bg-{{
+                            'success' if cheque.estado in ['cobrado', 'pagado',
+                                                            'pagado_en_efectivo',
+                                                            'cobrado_en_efectivo'] else
+                            'warning' if cheque.estado == 'depositado' else
+                            'danger' if cheque.estado in ['rechazado', 'vencido'] else
+                            'secondary' if cheque.estado == 'reemplazado' else
+                            'primary'
+                        }}">
+                            {{ estado_labels.get(cheque.estado, cheque.estado.replace('_', ' ')|capitalize) }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="d-flex gap-1 justify-content-end flex-wrap">
+                            <a href="{{ url_for('cheques.editar', id=cheque.id) }}"
+                               class="btn btn-sm btn-secondary btn-icon" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+
+                            {# ---------- RECIBIDOS ---------- #}
+                            {% if cheque.tipo == 'recibido' %}
+                                {% if cheque.estado == 'en_cartera' %}
+                                    <form action="{{ url_for('cheques.cambiar_estado', id=cheque.id, estado='depositado') }}"
+                                          method="POST">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Depositar">
+                                            Depositar
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                {% if cheque.estado == 'depositado' %}
+                                    <a href="{{ url_for('cheques.cobrar', id=cheque.id) }}"
+                                       class="btn btn-sm btn-success" title="Cobrar">
+                                        Cobrar
+                                    </a>
+                                {% endif %}
+                                {% if cheque.estado in ['en_cartera', 'depositado'] %}
+                                    <a href="{{ url_for('cheques.reemplazar', id=cheque.id) }}"
+                                       class="btn btn-sm btn-secondary"
+                                       title="Reemplazar por otro cheque o cobrar en efectivo">
+                                        <i class="fas fa-exchange-alt"></i> Reemplazar
+                                    </a>
+                                    <form action="{{ url_for('cheques.cambiar_estado', id=cheque.id, estado='rechazado') }}"
+                                          method="POST"
+                                          onsubmit="return confirm('¿Rechazar este cheque?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Rechazar">
+                                            Rechazar
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                            {# ---------- EMITIDOS ---------- #}
+                            {% else %}
+                                {% if cheque.estado in ['pendiente', 'en_cartera'] %}
+                                    <a href="{{ url_for('cheques.pagar', id=cheque.id) }}"
+                                       class="btn btn-sm btn-success"
+                                       title="Descontar de la cuenta bancaria">
+                                        <i class="fas fa-money-check-dollar"></i> Descontar en cuenta
+                                    </a>
+                                    <a href="{{ url_for('cheques.reemplazar', id=cheque.id) }}"
+                                       class="btn btn-sm btn-secondary"
+                                       title="Reemplazar por otro cheque o cancelar en efectivo">
+                                        <i class="fas fa-exchange-alt"></i> Reemplazar
+                                    </a>
+                                    <form action="{{ url_for('cheques.cambiar_estado', id=cheque.id, estado='rechazado') }}"
+                                          method="POST"
+                                          onsubmit="return confirm('¿Anular este cheque?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Anular">
+                                            Anular
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty">
+                            {% if tipo == 'recibido' %}
+                                No hay cheques recibidos {% if not ver_todos %}pendientes de cobro{% endif %}.
+                            {% else %}
+                                No hay cheques emitidos {% if not ver_todos %}pendientes de descuento{% endif %}.
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ render_pagination(pagination, 'cheques.listar') }}
+{% endblock %}

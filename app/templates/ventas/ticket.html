@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Ticket #{{ venta.id }}</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            width: 300px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 1px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+        .header p {
+            margin: 2px 0;
+            font-size: 10px;
+        }
+        .detalle {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        .detalle td {
+            padding: 2px 0;
+        }
+        .detalle .cantidad {
+            text-align: center;
+        }
+        .detalle .precio {
+            text-align: right;
+        }
+        .detalle .subtotal {
+            text-align: right;
+        }
+        .total {
+            border-top: 1px dashed #000;
+            padding-top: 5px;
+            margin-top: 5px;
+            font-weight: bold;
+            text-align: right;
+        }
+        .footer {
+            text-align: center;
+            border-top: 1px dashed #000;
+            padding-top: 10px;
+            margin-top: 10px;
+            font-size: 10px;
+        }
+        @media print {
+            body { margin: 0; padding: 10px; }
+            .no-print { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>{{ empresa.nombre }}</h2>
+        <p>Comprobante de Venta #{{ venta.id }}</p>
+        <p>{{ venta.fecha|localdatetime }}</p>
+        <p>Socio: {{ venta.socio.apellido ~ ', ' ~ venta.socio.nombre if venta.socio else 'No Socio' }}</p>
+        <p>Pago: {{ venta.metodo_pago|capitalize }}</p>
+    </div>
+
+    <table class="detalle">
+        <thead>
+            <tr>
+                <th>Producto</th>
+                <th class="cantidad">Cant</th>
+                <th class="precio">Precio</th>
+                <th class="subtotal">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for det in venta.detalles %}
+            <tr>
+                <td>{{ det.producto.nombre }}</td>
+                <td class="cantidad">{{ det.cantidad }}</td>
+                <td class="precio num">${{ "%.2f"|format(det.precio_unitario) }}</td>
+                <td class="subtotal num">${{ "%.2f"|format(det.subtotal) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="total">
+        Total: ${{ "%.2f"|format(venta.total) }}
+    </div>
+
+    <div class="footer">
+        ¡Gracias por tu compra!
+    </div>
+
+    <div class="no-print" style="text-align:center; margin-top:20px;">
+        <button onclick="window.print()">Imprimir</button>
+        <button onclick="window.close()">Cerrar</button>
+    </div>
+</body>
+</html>

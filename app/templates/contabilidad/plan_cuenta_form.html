@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if cuenta else 'Nueva' }} Cuenta Contable{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if cuenta else 'Nueva' }} Cuenta Contable</h1>
+        <p class="sub">Completá los datos de la cuenta contable.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.listar_plan_cuentas') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <h2 class="section-title">Datos de la cuenta</h2>
+        <div class="row g-3">
+            <div class="col-md-4">
+                {{ form.codigo.label(class="form-label") }}
+                {{ form.codigo(class="form-control" + (" is-invalid" if form.codigo.errors else "")) }}
+                {% for error in form.codigo.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-8">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for error in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.tipo.label(class="form-label") }}
+                {{ form.tipo(class="form-select" + (" is-invalid" if form.tipo.errors else "")) }}
+                {% for error in form.tipo.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.id_padre.label(class="form-label") }}
+                {{ form.id_padre(class="form-select" + (" is-invalid" if form.id_padre.errors else "")) }}
+                {% for error in form.id_padre.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-12">
+                <div class="form-check">
+                    {{ form.activo(class="form-check-input") }}
+                    {{ form.activo.label(class="form-check-label") }}
+                </div>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('contabilidad.listar_plan_cuentas') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

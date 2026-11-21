@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Previsualización Importación Productos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Previsualización de Importación</h1>
+        <p class="sub">Revisá los registros válidos y los que tienen errores antes de confirmar.</p>
+    </div>
+</div>
+
+<section class="stat-strip" aria-label="Resumen de importación">
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-circle-check" aria-hidden="true"></i> Registros válidos</p>
+        <p class="stat__value">{{ validos|length }}</p>
+        <p class="stat__hint">Se importarán o actualizarán</p>
+    </div>
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-circle-exclamation" aria-hidden="true"></i> Registros inválidos</p>
+        <p class="stat__value">{{ invalidos|length }}</p>
+        <p class="stat__hint">Tienen errores y no se importarán</p>
+    </div>
+</section>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body">
+                <h2 class="section-title">
+                    <i class="fas fa-circle-check" aria-hidden="true"></i>
+                    Registros Válidos: {{ validos|length }}
+                </h2>
+                <p class="section-sub">Estos productos se importarán o actualizarán.</p>
+                <ul class="mb-0">
+                    {% for v in validos[:10] %}
+                    <li>{{ v.nombre }} ({{ 'Actualizar' if v._accion == 'actualizar' else 'Nuevo' }})</li>
+                    {% endfor %}
+                    {% if validos|length > 10 %}
+                    <li>... y {{ validos|length - 10 }} más.</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h2 class="section-title">
+                    <i class="fas fa-circle-exclamation" aria-hidden="true"></i>
+                    Registros Inválidos: {{ invalidos|length }}
+                </h2>
+                <p class="section-sub flex-grow-1">Estos registros tienen errores y no se importarán.</p>
+                {% if invalidos %}
+                <div>
+                    <a href="#" class="btn btn-warning btn-sm" onclick="verErrores()">Ver detalles</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if invalidos %}
+<div class="card mt-3" id="errores-detalle" style="display:none;">
+    <div class="card-body">
+        <h2 class="section-title">
+            <i class="fas fa-triangle-exclamation" aria-hidden="true"></i> Detalle de Errores
+        </h2>
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Nombre</th>
+                            <th>Errores</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in invalidos %}
+                        <tr>
+                            <td>{{ inv.fila }}</td>
+                            <td>{{ inv.datos.nombre or '(sin nombre)' }}</td>
+                            <td>
+                                <ul class="list-unstyled mb-0">
+                                    {% for error in inv.errores %}
+                                    <li><span class="badge bg-danger">{{ error }}</span></li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('compras.confirmar_importacion_productos') }}" class="mt-4">
+    <div class="form-actions">
+        {% if validos %}
+        <button type="submit" class="btn btn-success">
+            <i class="fas fa-check"></i> Importar {{ validos|length }} productos
+        </button>
+        {% else %}
+        <button type="submit" class="btn btn-success" disabled>
+            No hay productos válidos para importar
+        </button>
+        {% endif %}
+        <a href="{{ url_for('compras.importar_productos') }}" class="btn btn-secondary">Volver</a>
+    </div>
+</form>
+
+<script>
+function verErrores() {
+    const div = document.getElementById('errores-detalle');
+    div.style.display = div.style.display === 'none' ? 'block' : 'none';
+}
+</script>
+{% endblock %}

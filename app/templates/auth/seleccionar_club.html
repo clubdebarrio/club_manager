@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Seleccionar club{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-5">
+        <div class="page-head">
+            <div>
+                <h1>Seleccioná un club</h1>
+                <p class="sub">Tu usuario pertenece a más de un club. Elegí con cuál querés entrar.</p>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" class="stack-sm">
+                    {% for u in usuarios %}
+                    <button type="submit" name="id_usuario" value="{{ u.id }}"
+                            class="list-group-item d-flex align-items-center gap-3 w-100 text-start"
+                            style="border: 1px solid var(--club-line); border-radius: var(--club-radius); cursor: pointer;">
+                        <span class="cm-user__avatar" aria-hidden="true">{{ u.empresa.nombre[0] | upper }}</span>
+                        <span class="flex-grow-1">
+                            <strong class="d-block">{{ u.empresa.nombre }}</strong>
+                            <small class="text-muted">
+                                {{ u.username }} · {{ u.nombre }}
+                                {% if u.es_super_admin %}· Super admin{% endif %}
+                            </small>
+                        </span>
+                        <i class="fas fa-chevron-right faint" aria-hidden="true"></i>
+                    </button>
+                    {% endfor %}
+                </form>
+
+                <div class="auth-alt">
+                    <a href="{{ url_for('auth.login') }}">Volver al inicio de sesión</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

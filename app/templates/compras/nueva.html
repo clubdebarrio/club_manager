@@ -1,0 +1,545 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Compra{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ==================================================
+    // DATOS INICIALES
+    // ==================================================
+    let carrito = {{ carrito_inicial|tojson }};
+    let pagos = {{ pagos_iniciales|tojson }};
+
+    const cuentasData = {{ cuentas|map(attribute='id')|list|tojson }};
+    const cuentasTipo = {{ cuentas_tipo|tojson }};
+    const cuentasNombre = {
+        {% for c in cuentas %}{{ c.id }}: "{{ c.nombre|e }}",{% endfor %}
+    };
+    const chequesTercero = [
+        {% for ch in cheques_tercero %}
+        {
+            id: {{ ch.id }},
+            numero: "{{ ch.numero|e }}",
+            banco: "{{ ch.banco_emisor|e }}",
+            titular: "{{ ch.titular|e }}",
+            monto: {{ ch.monto }},
+            fecha_cobro: "{{ ch.fecha_cobro.strftime('%d/%m/%Y') }}"
+        },
+        {% endfor %}
+    ];
+
+    // ==================================================
+    // CARRITO
+    // ==================================================
+    const carritoBody = document.getElementById('carrito-body');
+    const totalSpan = document.getElementById('total-carrito');
+    const productosJsonInput = document.getElementById('productos-json');
+
+    function actualizarCarrito() {
+        carritoBody.innerHTML = '';
+        let total = 0;
+        carrito.forEach(function (item, index) {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + item.nombre + '</td>' +
+                '<td>' + item.cantidad + '</td>' +
+                '<td>$' + item.precio_compra.toFixed(2) + '</td>' +
+                '<td>$' + (item.cantidad * item.precio_compra).toFixed(2) + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-danger" ' +
+                'onclick="eliminarDelCarrito(' + index + ')">' +
+                '<i class="fas fa-trash"></i></button></td>';
+            carritoBody.appendChild(tr);
+            total += item.cantidad * item.precio_compra;
+        });
+        totalSpan.textContent = total.toFixed(2);
+        productosJsonInput.value = JSON.stringify(carrito);
+        actualizarResumenPagos();
+    }
+
+    window.eliminarDelCarrito = function (index) {
+        carrito.splice(index, 1);
+        actualizarCarrito();
+    };
+
+    window.agregarAlCarrito = function () {
+        const select = document.getElementById('id_producto');
+        const cantidadInput = document.getElementById('cantidad');
+        const precioInput = document.getElementById('precio_compra');
+
+        const id = parseInt(select.value);
+        if (!id) { alert('Seleccione un producto'); return; }
+        const nombre = select.options[select.selectedIndex].text.split(' (')[0];
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        const precio_compra = parseFloat(precioInput.value);
+
+        if (cantidad <= 0) { alert('La cantidad debe ser mayor a 0'); return; }
+        if (precio_compra <= 0 || isNaN(precio_compra)) {
+            alert('Ingrese un precio de compra válido'); return;
+        }
+
+        const existente = carrito.find(function (item) { return item.id === id; });
+        if (existente) {
+            existente.cantidad += cantidad;
+            existente.precio_compra = precio_compra;
+        } else {
+            carrito.push({ id: id, nombre: nombre, cantidad: cantidad, precio_compra: precio_compra });
+        }
+        actualizarCarrito();
+        cantidadInput.value = 1;
+        precioInput.value = '';
+    };
+
+    // ==================================================
+    // PAGOS
+    // ==================================================
+    const pagosJsonInput = document.getElementById('pagos-json');
+    const pagosBody = document.getElementById('pagos-body');
+    const totalPagadoSpan = document.getElementById('total-pagado');
+    const deudaSpan = document.getElementById('deuda');
+
+    function actualizarResumenPagos() {
+        let totalCompra = 0;
+        carrito.forEach(function (item) {
+            totalCompra += item.cantidad * item.precio_compra;
+        });
+        let totalPagado = 0;
+        pagos.forEach(function (p) { totalPagado += parseFloat(p.monto) || 0; });
+
+        totalPagadoSpan.textContent = totalPagado.toFixed(2);
+        const deuda = totalCompra - totalPagado;
+        deudaSpan.textContent = deuda.toFixed(2);
+        deudaSpan.className = deuda > 0 ? 'text-danger fw-bold' : 'text-success';
+    }
+
+    function renderPagos() {
+        pagosBody.innerHTML = '';
+        if (pagos.length === 0) {
+            pagosBody.innerHTML =
+                '<tr><td colspan="5" class="text-center text-muted">' +
+                'No hay medios de pago cargados.</td></tr>';
+        }
+        pagos.forEach(function (p, idx) {
+            const tr = document.createElement('tr');
+            let descripcion = '';
+            if (p.metodo === 'efectivo' || p.metodo === 'transferencia' ||
+                p.metodo === 'debito' || p.metodo === 'credito') {
+                descripcion = cuentasNombre[p.id_cuenta] || '(cuenta eliminada)';
+            } else if (p.metodo === 'cheque_propio') {
+                const ch = p.cheque || {};
+                descripcion = 'Cheque #' + (ch.numero || '?') +
+                              ' (' + (ch.banco_emisor || '?') + ')';
+            } else if (p.metodo === 'cheque_tercero') {
+                const ch = chequesTercero.find(function (c) { return c.id === p.id_cheque_tercero; });
+                descripcion = ch ? ('Tercero #' + ch.numero + ' (' + ch.banco + ')')
+                                 : '(cheque eliminado)';
+            }
+            tr.innerHTML =
+                '<td>' + p.metodo.replace('_', ' ') + '</td>' +
+                '<td>' + descripcion + '</td>' +
+                '<td>$' + parseFloat(p.monto).toFixed(2) + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-danger" ' +
+                'onclick="eliminarPago(' + idx + ')">' +
+                '<i class="fas fa-trash"></i></button></td>';
+            pagosBody.appendChild(tr);
+        });
+        pagosJsonInput.value = JSON.stringify(pagos);
+        actualizarResumenPagos();
+    }
+
+    window.eliminarPago = function (idx) {
+        pagos.splice(idx, 1);
+        renderPagos();
+    };
+
+    // Apertura del modal de pago
+    const modalPagoEl = document.getElementById('modalPago');
+    const modalPago = new bootstrap.Modal(modalPagoEl);
+    const formPago = document.getElementById('formPago');
+    const pagoMetodo = document.getElementById('pago_metodo');
+    const pagoMonto = document.getElementById('pago_monto');
+
+    const bloques = {
+        efectivo: document.getElementById('pago_bloque_cuenta'),
+        transferencia: document.getElementById('pago_bloque_cuenta'),
+        debito: document.getElementById('pago_bloque_cuenta'),
+        credito: document.getElementById('pago_bloque_cuenta'),
+        cheque_propio: document.getElementById('pago_bloque_cheque_propio'),
+        cheque_tercero: document.getElementById('pago_bloque_cheque_tercero'),
+    };
+
+    function mostrarBloques() {
+        Object.keys(bloques).forEach(function (k) {
+            if (bloques[k]) bloques[k].style.display = 'none';
+        });
+        const m = pagoMetodo.value;
+        if (bloques[m]) bloques[m].style.display = '';
+    }
+
+    function filtrarCuentasPago() {
+        const m = pagoMetodo.value;
+        const sel = document.getElementById('pago_id_cuenta');
+        sel.innerHTML = '<option value="">— Elegir —</option>';
+        let tipo = null;
+        if (m === 'efectivo') tipo = 'efectivo';
+        else if (m === 'transferencia' || m === 'debito' || m === 'credito') tipo = 'banco';
+        if (!tipo) return;
+        cuentasData.forEach(function (id) {
+            if (cuentasTipo[id] === tipo) {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = cuentasNombre[id];
+                sel.appendChild(opt);
+            }
+        });
+    }
+
+    pagoMetodo.addEventListener('change', function () {
+        mostrarBloques();
+        filtrarCuentasPago();
+        actualizarMontoPorCheque();
+    });
+
+    // Abrir modal
+    document.getElementById('btn-agregar-pago').addEventListener('click', function () {
+        formPago.reset();
+        mostrarBloques();
+        filtrarCuentasPago();
+        actualizarMontoPorCheque();
+        modalPago.show();
+    });
+
+    // Guardar pago
+    formPago.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const metodo = pagoMetodo.value;
+        const monto = parseFloat(pagoMonto.value);
+        if (!monto || monto <= 0) {
+            alert('Ingresá un monto válido'); return;
+        }
+
+        const pago = { metodo: metodo, monto: monto };
+
+        if (metodo === 'efectivo' || metodo === 'transferencia' ||
+            metodo === 'debito' || metodo === 'credito') {
+            const idCuenta = parseInt(document.getElementById('pago_id_cuenta').value);
+            if (!idCuenta) { alert('Elegí una cuenta'); return; }
+            pago.id_cuenta = idCuenta;
+        } else if (metodo === 'cheque_propio') {
+            const ch = {
+                numero: document.getElementById('pago_ch_numero').value.trim(),
+                banco_emisor: document.getElementById('pago_ch_banco').value.trim(),
+                fecha_emision: document.getElementById('pago_ch_fecha_emision').value,
+                fecha_cobro: document.getElementById('pago_ch_fecha_cobro').value,
+            };
+            if (!ch.numero || !ch.banco_emisor || !ch.fecha_emision || !ch.fecha_cobro) {
+                alert('Completá todos los datos del cheque'); return;
+            }
+            pago.cheque = ch;
+        } else if (metodo === 'cheque_tercero') {
+            const idCh = parseInt(document.getElementById('pago_id_cheque_tercero').value);
+            if (!idCh) { alert('Elegí un cheque de tercero'); return; }
+            const ch = chequesTercero.find(function (c) { return c.id === idCh; });
+            if (ch && parseFloat(ch.monto) !== monto) {
+                alert('El monto debe ser igual al del cheque: $' + ch.monto);
+                return;
+            }
+            pago.id_cheque_tercero = idCh;
+        }
+
+        pagos.push(pago);
+        renderPagos();
+        modalPago.hide();
+    });
+
+    // ---- Auto-fill del monto cuando se elige cheque de tercero ----
+    const pagoIdChequeTercero = document.getElementById('pago_id_cheque_tercero');
+
+    function actualizarMontoPorCheque() {
+        const metodo = pagoMetodo.value;
+        if (metodo === 'cheque_tercero' && pagoIdChequeTercero) {
+            const idCh = parseInt(pagoIdChequeTercero.value);
+            const ch = chequesTercero.find(function (c) { return c.id === idCh; });
+            if (ch) {
+                pagoMonto.value = parseFloat(ch.monto).toFixed(2);
+                pagoMonto.setAttribute('readonly', 'readonly');
+            } else {
+                pagoMonto.value = '';
+                pagoMonto.removeAttribute('readonly');
+            }
+        } else {
+            pagoMonto.removeAttribute('readonly');
+        }
+    }
+
+    if (pagoIdChequeTercero) {
+        pagoIdChequeTercero.addEventListener('change', actualizarMontoPorCheque);
+    }
+
+    pagoMetodo.addEventListener('change', function () {
+        mostrarBloques();
+        filtrarCuentasPago();
+        actualizarMontoPorCheque();
+    });    
+
+    // ==================================================
+    // INIT
+    // ==================================================
+    actualizarCarrito();
+    renderPagos();
+});
+
+    // Toggle del bloque "nuevo proveedor"
+    const selProv = document.getElementById('id_proveedor');
+    const bloqueNuevoProv = document.getElementById('bloque_nuevo_proveedor');
+    if (selProv) {
+        selProv.addEventListener('change', function () {
+            if (this.value === '__nuevo__') {
+                bloqueNuevoProv.style.display = '';
+            } else {
+                bloqueNuevoProv.style.display = 'none';
+                document.getElementById('nuevo_proveedor_nombre').value = '';
+            }
+        });
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Nueva Compra</h1>
+        <p class="sub">Cargá productos, definí los medios de pago y registrá la compra al proveedor.</p>
+    </div>
+</div>
+
+<form method="POST" id="compra-form" novalidate>
+    {{ form.hidden_tag() }}
+    <input type="hidden" name="productos_json" id="productos-json">
+    <input type="hidden" name="pagos_json" id="pagos-json">
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="form-card h-100">
+                <h2 class="section-title">
+                    <i class="fas fa-box" aria-hidden="true"></i> Agregar productos
+                </h2>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label for="id_producto" class="form-label">Producto</label>
+                        <select class="form-select" id="id_producto">
+                            <option value="">Seleccionar...</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}">
+                                {{ p.nombre }} (Stock: {{ p.stock_actual }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="cantidad" class="form-label">Cantidad</label>
+                        <input type="number" class="form-control" id="cantidad" value="1" min="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="precio_compra" class="form-label">Precio compra</label>
+                        <input type="number" step="0.01" class="form-control" id="precio_compra" placeholder="0.00">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-primary w-100" onclick="agregarAlCarrito()">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="form-card h-100">
+                <h2 class="section-title">
+                    <i class="fas fa-file-invoice" aria-hidden="true"></i> Datos de la compra
+                </h2>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.fecha.label(class="form-label") }}
+                        {{ form.fecha(class="form-control", type="date") }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Proveedor</label>
+                        <select name="id_proveedor" id="id_proveedor" class="form-select">
+                            <option value="">— Sin proveedor —</option>
+                            {% for p in proveedores %}
+                                <option value="{{ p.id }}">{{ p.nombre }}</option>
+                            {% endfor %}
+                            <option value="__nuevo__">+ Crear nuevo proveedor...</option>
+                        </select>
+                    </div>
+                    <div class="col-12" id="bloque_nuevo_proveedor" style="display:none;">
+                        <label class="form-label">Nombre del nuevo proveedor *</label>
+                        <input type="text" name="nuevo_proveedor_nombre" id="nuevo_proveedor_nombre"
+                               class="form-control" placeholder="Ej: Raxga">
+                        <small class="form-text text-muted">
+                            Se creará automáticamente al guardar la compra.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section mt-3">
+        <h2 class="section-title">
+            <i class="fas fa-cart-shopping" aria-hidden="true"></i> Carrito de compra
+        </h2>
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Compra</th>
+                            <th>Subtotal</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="carrito-body"></tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="3" class="text-end">Total:</th>
+                            <th>$<span id="total-carrito">0.00</span></th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h2 class="section-title mb-0">
+                <i class="fas fa-credit-card" aria-hidden="true"></i> Medios de pago
+            </h2>
+            <button type="button" class="btn btn-sm btn-primary" id="btn-agregar-pago">
+                <i class="fas fa-plus"></i> Agregar medio de pago
+            </button>
+        </div>
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Método</th>
+                            <th>Detalle</th>
+                            <th class="text-end">Monto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="pagos-body"></tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="2" class="text-end">Total pagado:</th>
+                            <th class="text-end">$<span id="total-pagado">0.00</span></th>
+                            <th></th>
+                        </tr>
+                        <tr>
+                            <th colspan="2" class="text-end">Queda debiendo:</th>
+                            <th class="text-end">$<span id="deuda" class="text-success">0.00</span></th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-success">Registrar Compra</button>
+        <a href="{{ url_for('compras.listar') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<!-- Modal agregar pago -->
+<div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formPago">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar medio de pago</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="mb-3">
+                        <label class="form-label">Método *</label>
+                        <select class="form-select" id="pago_metodo" required>
+                            <option value="efectivo">Efectivo</option>
+                            <option value="transferencia">Transferencia</option>
+                            <option value="debito">Débito</option>
+                            <option value="credito">Crédito</option>
+                            <option value="cheque_propio">Cheque propio</option>
+                            <option value="cheque_tercero">Cheque de tercero</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Monto *</label>
+                        <input type="number" step="0.01" class="form-control"
+                               id="pago_monto" required>
+                    </div>
+
+                    <!-- Cuenta (efectivo/transferencia/debito/credito) -->
+                    <div class="mb-3" id="pago_bloque_cuenta" style="display:none;">
+                        <label class="form-label">Cuenta *</label>
+                        <select class="form-select" id="pago_id_cuenta">
+                            <option value="">— Elegir —</option>
+                        </select>
+                    </div>
+
+                    <!-- Cheque propio -->
+                    <div id="pago_bloque_cheque_propio" style="display:none;">
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Número *</label>
+                                <input type="text" class="form-control" id="pago_ch_numero">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Banco *</label>
+                                <input type="text" class="form-control" id="pago_ch_banco">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Fecha emisión *</label>
+                                <input type="date" class="form-control" id="pago_ch_fecha_emision">
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label class="form-label">Fecha cobro *</label>
+                                <input type="date" class="form-control" id="pago_ch_fecha_cobro">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cheque de tercero -->
+                    <div class="mb-3" id="pago_bloque_cheque_tercero" style="display:none;">
+                        <label class="form-label">Cheque de tercero *</label>
+                        <select class="form-select" id="pago_id_cheque_tercero">
+                            <option value="">— Elegir —</option>
+                            {% for ch in cheques_tercero %}
+                            <option value="{{ ch.id }}">
+                                #{{ ch.numero }} · {{ ch.banco_emisor }} ·
+                                {{ ch.titular }} · {{ ch.monto|pesos }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

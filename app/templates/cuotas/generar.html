@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Generar Cuotas{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Generar Cuotas Mensuales</h1>
+        <p class="sub">Crea las cuotas de todos los socios activos para el período elegido</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('cuotas.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<form method="POST">
+    <div class="form-card">
+        <h2 class="section-title"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Período a generar</h2>
+        <p class="section-sub">Elegí mes y año. Las cuotas se generan con los montos vigentes por tipo y categoría.</p>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label for="mes" class="form-label">Mes</label>
+                <select name="mes" id="mes" class="form-select">
+                    {% for m in range(1, 13) %}
+                        <option value="{{ m }}" {% if m == 7 %}selected{% endif %}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="ano" class="form-label">Año</label>
+                <select name="ano" id="ano" class="form-select">
+                    {% for a in range(2020, 2027) %}
+                        <option value="{{ a }}" {% if a == 2026 %}selected{% endif %}>{{ a }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-plus" aria-hidden="true"></i> Generar Cuotas
+            </button>
+            <a href="{{ url_for('cuotas.listar') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Roles{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Roles y permisos</h1>
+        <p class="sub">Definí a qué módulos puede acceder cada usuario del club.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('roles.nuevo') }}" class="btn btn-primary">
+            <i class="fas fa-plus" aria-hidden="true"></i> Nuevo rol
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info small">
+    <i class="fas fa-info-circle" aria-hidden="true"></i>
+    Los roles definen a qué módulos puede acceder cada usuario. Un mismo
+    usuario solo puede tener un rol. El super administrador (Presidente)
+    tiene acceso a todo sin importar el rol.
+</div>
+
+{% if roles %}
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th class="text-center">Permisos</th>
+                    <th class="text-center">Usuarios</th>
+                    <th>Estado</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in roles %}
+                <tr>
+                    <td><strong>{{ r.nombre }}</strong></td>
+                    <td class="text-center">
+                        <span class="badge bg-secondary">
+                            {{ r.permisos_list|length }} permisos
+                        </span>
+                    </td>
+                    <td class="text-center">{{ usuarios_por_rol.get(r.id, 0) }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if r.activo else 'secondary' }}">
+                            {{ 'Activo' if r.activo else 'Inactivo' }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="table-actions">
+                            <a href="{{ url_for('roles.editar', id=r.id) }}"
+                               class="btn btn-sm btn-secondary btn-icon" title="Editar">
+                                <i class="fas fa-edit" aria-hidden="true"></i>
+                            </a>
+                            <form action="{{ url_for('roles.eliminar', id=r.id) }}"
+                                  method="POST" style="display:inline;"
+                                  onsubmit="return confirm('¿Eliminar el rol {{ r.nombre }}?')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon"
+                                        title="Eliminar">
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+    No hay roles creados. Empezá creando uno.
+</div>
+{% endif %}
+{% endblock %}

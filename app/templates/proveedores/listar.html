@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Proveedores{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Proveedores</h1>
+        <p class="sub">Padrón de proveedores con su deuda y estado.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('proveedores.cuentas_por_pagar') }}" class="btn btn-outline-danger">
+            <i class="fas fa-file-invoice-dollar"></i> Cuentas por pagar
+        </a>
+        {% if usuario_actual and usuario_actual.puede_editar('proveedores') %}
+        <a href="{{ url_for('proveedores.nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nuevo proveedor
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<form method="GET" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+            <input type="text" name="q" class="form-control" placeholder="Buscar por nombre o CUIT..." value="{{ q }}">
+        </div>
+        <div class="col-md-3">
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox" name="ver_inactivos" value="1"
+                       id="ver_inactivos" {{ 'checked' if ver_inactivos else '' }}>
+                <label class="form-check-label" for="ver_inactivos">Incluir inactivos</label>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-secondary w-100">Filtrar</button>
+        </div>
+    </div>
+</form>
+
+{% if proveedores %}
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>CUIT</th>
+                    <th>Cond. IVA</th>
+                    <th>Teléfono</th>
+                    <th class="text-end">Deuda</th>
+                    <th>Estado</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in proveedores %}
+                <tr>
+                    <td><a href="{{ url_for('proveedores.detalle', id=p.id) }}">{{ p.nombre }}</a></td>
+                    <td>{{ p.cuit or '—' }}</td>
+                    <td>{{ p.condicion_iva or '—' }}</td>
+                    <td>{{ p.telefono or '—' }}</td>
+                    <td class="text-end num">
+                        {% set d = deudas.get(p.id, 0) %}
+                        {% if d > 0 %}
+                            <span class="text-danger fw-bold">{{ d|pesos }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if p.activo else 'secondary' }}">
+                            {{ 'Activo' if p.activo else 'Inactivo' }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('proveedores.editar', id=p.id) }}"
+                           class="btn btn-sm btn-secondary btn-icon" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        {% if usuario_actual and usuario_actual.puede_editar('proveedores') %}
+                        <form action="{{ url_for('proveedores.toggle_activo', id=p.id) }}" method="POST" style="display:inline;">
+                            <button type="submit" class="btn btn-sm btn-secondary">
+                                {{ 'Desactivar' if p.activo else 'Activar' }}
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty">
+    <i class="fas fa-truck" aria-hidden="true"></i>
+    No hay proveedores cargados. Empezá creando el primero.
+</div>
+{% endif %}
+{% endblock %}

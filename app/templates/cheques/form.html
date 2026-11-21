@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if cheque else 'Nuevo' }} Cheque{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if cheque else 'Nuevo' }} Cheque</h1>
+        <p class="sub">Datos del cheque y su vencimiento.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('cheques.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <h2 class="section-title">Datos del cheque</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.numero.label(class="form-label") }}
+                {{ form.numero(class="form-control" + (" is-invalid" if form.numero.errors else "")) }}
+                {% for error in form.numero.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.banco_emisor.label(class="form-label") }}
+                {{ form.banco_emisor(class="form-control" + (" is-invalid" if form.banco_emisor.errors else "")) }}
+                {% for error in form.banco_emisor.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.titular.label(class="form-label") }}
+                {{ form.titular(class="form-control" + (" is-invalid" if form.titular.errors else "")) }}
+                {% for error in form.titular.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.monto.label(class="form-label") }}
+                {{ form.monto(class="form-control" + (" is-invalid" if form.monto.errors else ""), placeholder="0.00") }}
+                {% for error in form.monto.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.fecha_emision.label(class="form-label") }}
+                {{ form.fecha_emision(class="form-control" + (" is-invalid" if form.fecha_emision.errors else "")) }}
+                {% for error in form.fecha_emision.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.fecha_cobro.label(class="form-label") }}
+                {{ form.fecha_cobro(class="form-control" + (" is-invalid" if form.fecha_cobro.errors else "")) }}
+                {% for error in form.fecha_cobro.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.tipo.label(class="form-label") }}
+                {{ form.tipo(class="form-select" + (" is-invalid" if form.tipo.errors else "")) }}
+                {% for error in form.tipo.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-12">
+                {{ form.observaciones.label(class="form-label") }}
+                {{ form.observaciones(class="form-control" + (" is-invalid" if form.observaciones.errors else ""), rows=3) }}
+                {% for error in form.observaciones.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('cheques.listar') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

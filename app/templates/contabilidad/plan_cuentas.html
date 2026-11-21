@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Plan de Cuentas{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Plan de Cuentas</h1>
+        <p class="sub">Estructura de cuentas contables, subcuentas y estados.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="alert alert-info small">
+    <i class="fas fa-info-circle"></i>
+    Para crear una subcuenta, hacé click en el botón
+    <span class="badge bg-success"><i class="fas fa-plus"></i></span>
+    de la fila correspondiente. El código se calcula automáticamente y el
+    nivel máximo es {{ 6 }}.
+</div>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Padre</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuenta in cuentas %}
+                <tr>
+                    <td class="nowrap"><strong>{{ cuenta.codigo }}</strong></td>
+                    <td>
+                        {{ cuenta.nombre }}
+                        {% if cuenta.es_automatica %}
+                            <span class="badge bg-secondary ms-1"
+                                  title="Se genera automáticamente desde un módulo (cuotas, ventas, alquileres o cheques).">
+                                Automática
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% set color = {
+                            'Activo': 'primary',
+                            'Pasivo': 'warning',
+                            'Patrimonio': 'info',
+                            'Recurso': 'success',
+                            'Gasto': 'danger',
+                        }.get(cuenta.tipo, 'secondary') %}
+                        <span class="badge bg-{{ color }}">{{ cuenta.tipo }}</span>
+                    </td>
+                    <td>
+                        {{ cuenta.padre.codigo ~ ' - ' ~ cuenta.padre.nombre if cuenta.padre else '-' }}
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if cuenta.activo else 'secondary' }}">
+                            {{ 'Activo' if cuenta.activo else 'Inactivo' }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="d-flex gap-1 justify-content-end flex-wrap">
+                            {% if cuenta.puede_tener_subcuentas and usuario_actual and usuario_actual.puede_editar('contabilidad') %}
+                            <a href="{{ url_for('contabilidad.nueva_cuenta', padre=cuenta.id) }}"
+                               class="btn btn-sm btn-success btn-icon"
+                               title="Agregar subcuenta">
+                                <i class="fas fa-plus"></i>
+                            </a>
+                            {% endif %}
+                            {% if usuario_actual and usuario_actual.puede_editar('contabilidad') %}
+                            <a href="{{ url_for('contabilidad.editar_cuenta', id=cuenta.id) }}"
+                               class="btn btn-sm btn-warning btn-icon"
+                               title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            <form action="{{ url_for('contabilidad.eliminar_cuenta', id=cuenta.id) }}"
+                                  method="POST"
+                                  onsubmit="return confirm('¿Eliminar la cuenta {{ cuenta.codigo }}?');">
+                                <button type="submit" class="btn btn-sm btn-danger btn-icon"
+                                        title="Eliminar">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">
+                        <div class="empty">No hay cuentas contables.</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

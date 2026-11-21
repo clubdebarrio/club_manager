@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if categoria else 'Nueva' }} Categoría de Socio{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if categoria else 'Nueva' }} Categoría de Socio</h1>
+        <p class="sub">Definí el nombre, la descripción y el estado de la categoría.</p>
+    </div>
+</div>
+
+<div class="form-card">
+    <h2 class="section-title"><i class="fas fa-layer-group" aria-hidden="true"></i> Datos de la categoría</h2>
+    <form method="POST">
+        {{ form.hidden_tag() }}
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for error in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.descripcion.label(class="form-label") }}
+                {{ form.descripcion(class="form-control" + (" is-invalid" if form.descripcion.errors else "")) }}
+                {% for error in form.descripcion.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="mt-3 form-check">
+            {{ form.activo(class="form-check-input") }}
+            {{ form.activo.label(class="form-check-label") }}
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('config.listar_categorias') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

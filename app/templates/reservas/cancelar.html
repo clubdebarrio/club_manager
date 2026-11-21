@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Cancelar Reserva #{{ reserva.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Cancelar Reserva #{{ reserva.id }}</h1>
+        <p class="sub">Confirmá la cancelación y definí qué pasa con el dinero cobrado.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('reservas.detalle', id=reserva.id) }}" class="btn btn-secondary btn-sm">
+            Volver sin cancelar
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-5">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="section-title mb-0">Resumen</h2>
+            </div>
+            <div class="card-body">
+                <div class="kv">
+                    <span class="k">Instalación</span>
+                    <span class="v">{{ reserva.instalacion.nombre }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Socio</span>
+                    <span class="v">{{ reserva.socio.apellido ~ ', ' ~ reserva.socio.nombre if reserva.socio else 'No Socio' }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Fecha</span>
+                    <span class="v nowrap">
+                        {{ reserva.fecha_inicio.strftime('%d/%m/%Y %H:%M') }} —
+                        {{ reserva.fecha_fin.strftime('%d/%m/%Y %H:%M') }}
+                    </span>
+                </div>
+                <div class="kv">
+                    <span class="k">Monto total</span>
+                    <span class="v num">{{ reserva.monto_total|pesos }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Cobrado</span>
+                    <span class="v num">{{ reserva.total_pagado|pesos }}</span>
+                </div>
+                {% if reserva.total_devuelto > 0 %}
+                <div class="kv">
+                    <span class="k">Ya devuelto</span>
+                    <span class="v num">{{ reserva.total_devuelto|pesos }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            Esta acción <strong>no se puede deshacer</strong>. La reserva quedará cancelada
+            y el horario quedará libre para otro socio.
+        </div>
+
+        <form method="POST">
+            <div class="form-section">
+                <h2><i class="fas fa-rotate-left" aria-hidden="true"></i> Devolución de fondos</h2>
+                {% if reserva.total_pagado > 0 %}
+                    <p class="section-sub">
+                        Se cobraron <strong>{{ reserva.total_pagado|pesos }}</strong>.
+                        ¿Qué querés hacer con ese dinero?
+                    </p>
+
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio"
+                               name="accion_devolucion" id="accion_no_devolver"
+                               value="no_devolver" checked>
+                        <label class="form-check-label" for="accion_no_devolver">
+                            <strong>No devolver</strong> — el monto cobrado queda como ingreso
+                            del club (ej. retención de seña).
+                        </label>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="radio"
+                               name="accion_devolucion" id="accion_devolver"
+                               value="devolver_total">
+                        <label class="form-check-label" for="accion_devolver">
+                            <strong>Devolver el total</strong>
+                            ({{ reserva.total_pagado|pesos }}) 
+                            {{ 'al socio' if reserva.socio else 'al cliente' }}.
+                        </label>
+                    </div>
+
+                    <div id="bloque_cuenta" style="display:none;">
+                        <label class="form-label">Cuenta bancaria / caja origen</label>
+                        <select name="id_cuenta" class="form-select">
+                            <option value="">— Elegir —</option>
+                            {% for c in cuentas %}
+                                <option value="{{ c.id }}">{{ c.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            De acá va a salir el dinero. Se genera el asiento
+                            de reversión automáticamente.
+                        </small>
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0">
+                        Esta reserva no tiene pagos registrados. No hay
+                        nada que devolver.
+                    </p>
+                    <input type="hidden" name="accion_devolucion" value="no_devolver">
+                {% endif %}
+            </div>
+
+            <div class="form-section">
+                <label class="form-label">Motivo de la cancelación (opcional)</label>
+                <textarea name="motivo" class="form-control" rows="2"
+                          placeholder="Ej: el socio avisó que no puede asistir..."></textarea>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-times"></i> Confirmar cancelación
+                </button>
+                <a href="{{ url_for('reservas.detalle', id=reserva.id) }}"
+                   class="btn btn-secondary">Volver</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var radioDevolver = document.getElementById('accion_devolver');
+    var radioNo = document.getElementById('accion_no_devolver');
+    var bloqueCuenta = document.getElementById('bloque_cuenta');
+    if (!radioDevolver || !radioNo) return;
+
+    function actualizar() {
+        bloqueCuenta.style.display = radioDevolver.checked ? '' : 'none';
+    }
+    radioDevolver.addEventListener('change', actualizar);
+    radioNo.addEventListener('change', actualizar);
+});
+</script>
+{% endblock %}

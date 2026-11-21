@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Compra #{{ compra.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>
+            Compra #{{ compra.id }}
+            {% if compra.estado == 'anulada' %}
+                <span class="badge bg-danger ms-2">ANULADA</span>
+            {% endif %}
+        </h1>
+        <p class="sub">Detalle de la compra, pagos y notas de crédito.</p>
+    </div>
+    <div class="actions">
+        {% if compra.id_proveedor %}
+            <a href="{{ url_for('proveedores.detalle', id=compra.id_proveedor) }}"
+               class="btn btn-outline-secondary">
+                <i class="fas fa-truck"></i> Ver proveedor
+            </a>
+        {% endif %}
+        {% if compra.estado == 'completada' %}
+            {% if compra.saldo_pendiente > 0 and usuario_actual and usuario_actual.puede_editar('compras') %}
+                <a href="{{ url_for('compras.pagar_compra', id=compra.id) }}"
+                   class="btn btn-success">
+                    <i class="fas fa-money-bill"></i> Pagar deuda
+                </a>
+            {% endif %}
+            {% if compra.estado == 'completada' and usuario_actual and usuario_actual.puede_editar('compras') %}
+                {% set hay_devolvibles = productos_info|selectattr('maximo_devolvible', 'gt', 0)|list|length > 0 %}
+                {% if hay_devolvibles %}
+                    <a href="{{ url_for('compras.nueva_nota_credito', id=compra.id) }}"
+                    class="btn btn-info">
+                        <i class="fas fa-undo"></i> Nota de crédito
+                    </a>
+                {% endif %}
+            {% endif %}
+            {% if usuario_actual and usuario_actual.puede_editar('compras') %}
+                <button type="button" class="btn btn-outline-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalAnularCompra">
+                    <i class="fas fa-ban"></i> Anular compra
+                </button>
+            {% endif %}
+        {% endif %}
+        <a href="{{ url_for('compras.listar') }}" class="btn btn-secondary">Volver</a>
+    </div>
+</div>
+
+<div class="card mb-4 {{ 'border-danger' if compra.estado == 'anulada' else '' }}">
+    <div class="card-body">
+        {% if compra.estado == 'anulada' %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Esta compra está anulada.</strong>
+            {% if compra.fecha_anulacion %}
+            <br>
+            <small>
+                Anulada el
+                {{ compra.fecha_anulacion|localdatetime }}
+                {% if compra.motivo_anulacion %}
+                    · Motivo: <em>{{ compra.motivo_anulacion }}</em>
+                {% endif %}
+            </small>
+            {% endif %}
+            <br>
+            <small>
+                El stock fue revertido, los pagos y cheques anulados, y
+                se generó el contra-asiento contable.
+            </small>
+        </div>
+        {% endif %}
+
+        <div class="detail-grid">
+            <dl class="detail-list">
+                <dt>Fecha</dt>
+                <dd>{{ compra.fecha|localdatetime }}</dd>
+                <dt>Proveedor</dt>
+                <dd>
+                    {% if compra.proveedor_rel %}
+                        <a href="{{ url_for('proveedores.detalle', id=compra.proveedor_rel.id) }}">
+                            {{ compra.proveedor_rel.nombre }}
+                        </a>
+                    {% else %}
+                        {{ compra.proveedor or '—' }}
+                    {% endif %}
+                </dd>
+                <dt>Estado del pago</dt>
+                <dd>
+                    {% if compra.saldo_a_favor > 0 %}
+                        <span class="badge bg-info text-dark">
+                            Saldo a favor: {{ compra.saldo_a_favor|pesos }}
+                        </span>
+                    {% elif compra.saldo_pendiente <= 0 %}
+                        <span class="badge bg-success">Pagada</span>
+                    {% else %}
+                        <span class="badge bg-warning text-dark">
+                            Debe {{ compra.saldo_pendiente|pesos }}
+                        </span>
+                    {% endif %}
+                </dd>
+            </dl>
+            <dl class="detail-list">
+                <dt>Total compra</dt>
+                <dd>{{ compra.total|pesos }}</dd>
+                <dt>Total pagado</dt>
+                <dd><span class="text-success">{{ compra.total_pagado|pesos }}</span></dd>
+                <dt>Saldo pendiente</dt>
+                <dd>
+                    <span class="{{ 'text-danger fw-bold' if compra.saldo_pendiente > 0 else 'text-muted' }}">
+                        {{ compra.saldo_pendiente|pesos }}
+                    </span>
+                </dd>
+            </dl>
+        </div>
+    </div>
+</div>
+
+<h2 class="section-title">
+    <i class="fas fa-list" aria-hidden="true"></i> Productos
+</h2>
+<div class="tabla-wrap mb-4">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th class="text-end">Cantidad</th>
+                    <th class="text-end">Precio Compra</th>
+                    <th class="text-end">Subtotal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for det in compra.detalles %}
+                <tr>
+                    <td>{{ det.producto.nombre }}</td>
+                    <td class="text-end num">{{ det.cantidad }}</td>
+                    <td class="text-end num">{{ det.precio_compra|pesos }}</td>
+                    <td class="text-end num">{{ det.subtotal|pesos }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <th colspan="3" class="text-end">Total:</th>
+                    <th class="text-end num">{{ compra.total|pesos }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<h2 class="section-title">
+    <i class="fas fa-money-bill" aria-hidden="true"></i> Pagos registrados
+</h2>
+{% if compra.pagos %}
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Método</th>
+                    <th>Comprobante</th>
+                    <th class="text-end">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in compra.pagos %}
+                <tr>
+                    <td>{{ (p.fecha_pago or compra.fecha)|localdate }}</td>
+                    <td>{{ p.metodo.replace('_', ' ')|capitalize }}</td>
+                    <td>{{ p.cheque.numero if p.cheque else '—' }}</td>
+                    <td class="text-end num text-success">{{ p.monto|pesos }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <th colspan="3" class="text-end">Total pagado:</th>
+                    <th class="text-end num">{{ compra.total_pagado|pesos }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty">
+    <i class="fas fa-money-bill" aria-hidden="true"></i>
+    No hay pagos registrados. La compra quedó pendiente de pago.
+</div>
+{% endif %}
+
+{# --- Notas de crédito --- #}
+{% if compra.notas_credito %}
+<div class="d-flex justify-content-between align-items-center mt-3 mb-2">
+    <h2 class="section-title mb-0">
+        <i class="fas fa-undo" aria-hidden="true"></i> Notas de crédito
+    </h2>
+    <span class="chip">
+        Total: {{ compra.total_notas_credito|pesos }}
+    </span>
+</div>
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-sm align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Motivo</th>
+                    <th class="text-end">Monto</th>
+                    <th>Estado</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in compra.notas_credito %}
+                <tr class="{{ 'opacity-50' if n.anulada else '' }}">
+                    <td>{{ n.id }}</td>
+                    <td>{{ n.fecha.strftime('%d/%m/%Y') }}</td>
+                    <td class="small">{{ n.motivo }}</td>
+                    <td class="text-end num">{{ n.monto|pesos }}</td>
+                    <td>
+                        {% if n.anulada %}
+                            <span class="badge bg-danger">Anulada</span>
+                        {% else %}
+                            <span class="badge bg-success">Vigente</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if not n.anulada and usuario_actual and usuario_actual.puede_editar('compras') %}
+                            <form method="POST"
+                                  action="{{ url_for('compras.anular_nota_credito', nota_id=n.id) }}"
+                                  style="display:inline;"
+                                  onsubmit="return confirm('¿Anular la nota de crédito #{{ n.id }}? Se revertirá el stock y el asiento contable.')">
+                                <input type="hidden" name="motivo" value="">
+                                <button type="submit"
+                                        class="btn btn-sm btn-outline-danger">
+                                    <i class="fas fa-ban"></i> Anular
+                                </button>
+                            </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# --- Modal de anulación --- #}
+{% if compra.estado == 'completada' %}
+<div class="modal fade" id="modalAnularCompra" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST"
+                  action="{{ url_for('compras.anular', id=compra.id) }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-ban"></i> Anular compra #{{ compra.id }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white"
+                            data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>Vas a anular esta compra por
+                        {{ compra.total|pesos }}.</strong>
+                        <hr class="my-2">
+                        Se van a revertir:
+                        <ul class="mb-0 mt-1">
+                            <li>El <strong>stock</strong> de los productos
+                                comprados.</li>
+                            <li>Los <strong>movimientos de caja</strong>
+                                generados por los pagos.</li>
+                            <li>Los <strong>cheques</strong>:
+                                <ul>
+                                    <li>Cheques propios → <em>rechazado</em>.</li>
+                                    <li>Cheques de terceros → vuelven a
+                                        <em>en cartera</em>.</li>
+                                </ul>
+                            </li>
+                            <li>Se genera el <strong>contra-asiento</strong>
+                                contable correspondiente.</li>
+                        </ul>
+                    </div>
+                    <label class="form-label">Motivo (opcional)</label>
+                    <input type="text" name="motivo" class="form-control"
+                           maxlength="200"
+                           placeholder="Ej: Cargué mal los productos, proveedor entregó mal...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-ban"></i> Confirmar anulación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

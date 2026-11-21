@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Usuarios</h1>
+        <p class="sub">Cuentas del club, roles y estado de acceso.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('usuarios.nuevo') }}" class="btn btn-primary">
+            <i class="fas fa-plus" aria-hidden="true"></i> Nuevo usuario
+        </a>
+    </div>
+</div>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Usuario</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in usuarios %}
+                <tr>
+                    <td>
+                        {{ u.nombre }}
+                        {% if u.es_super_admin %}
+                            <span class="badge bg-warning text-dark ms-1">
+                                <i class="fas fa-crown" aria-hidden="true"></i> Presidente
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td><code>{{ u.username }}</code></td>
+                    <td>
+                        {% if u.es_super_admin %}
+                            <span class="text-muted">Acceso total</span>
+                        {% elif u.rol_rel %}
+                            {{ u.rol_rel.nombre }}
+                        {% else %}
+                            <span class="text-muted">Sin rol</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if u.activo else 'secondary' }}">
+                            {{ 'Activo' if u.activo else 'Inactivo' }}
+                        </span>
+                    </td>
+                    <td class="text-end">
+                        <div class="table-actions">
+                            {% if not u.es_super_admin %}
+                            <a href="{{ url_for('usuarios.editar', id=u.id) }}"
+                               class="btn btn-sm btn-secondary btn-icon" title="Editar">
+                                <i class="fas fa-edit" aria-hidden="true"></i>
+                            </a>
+                            <form action="{{ url_for('usuarios.eliminar', id=u.id) }}"
+                                  method="POST" style="display:inline;"
+                                  onsubmit="return confirm('¿Eliminar el usuario {{ u.username }}?')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger btn-icon"
+                                        title="Eliminar">
+                                    <i class="fas fa-trash" aria-hidden="true"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                                <span class="text-muted small">—</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5">
+                        <div class="empty">
+                            <i class="fas fa-users" aria-hidden="true"></i>
+                            <strong>No hay usuarios registrados.</strong>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Productos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Importar Productos</h1>
+        <p class="sub">Descargá la plantilla, completala y subila para validar antes de importar.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+                <h2 class="section-title">📥 1. Descargar Plantilla</h2>
+                <p class="section-sub flex-grow-1">Descarga la plantilla Excel con las columnas necesarias.</p>
+                <div>
+                    <a href="{{ url_for('compras.descargar_plantilla_productos') }}" class="btn btn-success">
+                        <i class="fas fa-file-excel"></i> Descargar Plantilla Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-card h-100">
+            <h2 class="section-title">📤 2. Subir Archivo</h2>
+            <p class="section-sub">Completa la plantilla y súbela aquí.</p>
+            <form method="POST" enctype="multipart/form-data" action="{{ url_for('compras.importar_productos') }}">
+                <div class="mb-3">
+                    <label for="archivo" class="form-label">Archivo Excel o CSV</label>
+                    <input type="file" class="form-control" id="archivo" name="archivo" accept=".xlsx,.xls,.csv" required>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload"></i> Validar y Previsualizar
+                    </button>
+                    <a href="{{ url_for('ventas.listar_productos') }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <h2 class="section-title">📋 Resumen de Campos</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <h3 class="section-sub">Campos obligatorios (*)</h3>
+                <ul>
+                    <li><strong>nombre</strong> - Nombre del producto</li>
+                    <li><strong>precio_venta</strong> - Precio de venta (número positivo)</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h3 class="section-sub">Campos opcionales</h3>
+                <ul>
+                    <li><strong>descripcion</strong> - Descripción</li>
+                    <li><strong>categoria</strong> - Categoría (puede estar vacía)</li>
+                    <li><strong>precio_costo</strong> - Costo de compra</li>
+                    <li><strong>stock_actual</strong> - Stock disponible</li>
+                    <li><strong>stock_minimo</strong> - Alerta de stock bajo</li>
+                    <li><strong>activo</strong> - Sí/No (default Sí)</li>
+                </ul>
+            </div>
+        </div>
+        <p class="text-muted mb-0">Si el producto ya existe (mismo nombre), se actualizarán sus datos.</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Compras{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Compras</h1>
+        <p class="sub">Compras a proveedores con su estado de pago y saldo pendiente.</p>
+    </div>
+    <div class="actions">
+        {% if usuario_actual and usuario_actual.puede_editar('compras') %}
+        <a href="{{ url_for('compras.nueva') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Compra
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<form method="GET" id="form-busqueda" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <input type="text" id="buscador" name="q" class="form-control"
+                   placeholder="Buscar por proveedor o # de compra..."
+                   value="{{ query or '' }}" autofocus>
+        </div>
+        <div class="col-md-3">
+            <div class="form-check mt-2">
+                <input class="form-check-input" type="checkbox"
+                       name="ver_anuladas" value="1" id="ver_anuladas"
+                       {{ 'checked' if ver_anuladas else '' }}>
+                <label class="form-check-label small" for="ver_anuladas">
+                    Ver solo anuladas
+                </label>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Buscar</button>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('compras.listar') }}" class="btn btn-secondary w-100">Limpiar</a>
+        </div>
+    </div>
+</form>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th class="text-end">Total</th>
+                    <th class="text-end">Pagado</th>
+                    <th class="text-end">Saldo</th>
+                    <th>Estado pago</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in compras %}
+                <tr class="{{ 'opacity-50' if c.estado == 'anulada' else '' }}">
+                    <td>{{ c.id }}</td>
+                    <td>{{ c.fecha|localdatetime }}</td>
+                    <td>
+                        {% if c.proveedor_rel %}
+                            <a href="{{ url_for('proveedores.detalle', id=c.proveedor_rel.id) }}">
+                                {{ c.proveedor_rel.nombre }}
+                            </a>
+                        {% else %}
+                            {{ c.proveedor or '—' }}
+                        {% endif %}
+                    </td>
+                    <td class="text-end num">{{ c.total|pesos }}</td>
+                    <td class="text-end num text-success">{{ c.total_pagado|pesos }}</td>
+                    <td class="text-end num {{ 'text-danger fw-bold' if c.saldo_pendiente > 0 else 'text-muted' }}">
+                        {{ c.saldo_pendiente|pesos }}
+                    </td>
+                    <td>
+                        {% if c.estado == 'anulada' %}
+                            <span class="badge bg-danger">Anulada</span>
+                        {% elif c.saldo_pendiente <= 0 %}
+                            <span class="badge bg-success">Pagada</span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('compras.detalle', id=c.id) }}"
+                           class="btn btn-sm btn-secondary btn-icon" title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        {% if c.saldo_pendiente > 0 and usuario_actual and usuario_actual.puede_editar('compras') %}
+                            <a href="{{ url_for('compras.pagar_compra', id=c.id) }}"
+                               class="btn btn-sm btn-success btn-icon" title="Pagar deuda">
+                                <i class="fas fa-money-bill"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty">
+                            <i class="fas fa-cart-shopping" aria-hidden="true"></i>
+                            No hay compras registradas.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ render_pagination(pagination, 'compras.listar', {'q': query or '', 'ver_anuladas': '1' if ver_anuladas else '0'}) }}
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador');
+    if (buscador && buscador.value) {
+        buscador.focus();
+        buscador.setSelectionRange(buscador.value.length, buscador.value.length);
+    }
+    const form = document.getElementById('form-busqueda');
+    if (buscador && form) {
+        let timeout = null;
+        buscador.addEventListener('input', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => form.submit(), 400);
+        });
+        buscador.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(timeout);
+                form.submit();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

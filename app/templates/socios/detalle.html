@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle de Socio - {{ socio.apellido }}, {{ socio.nombre }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ socio.apellido }}, {{ socio.nombre }}</h1>
+        <p class="sub">Ficha del socio y su estado dentro del padrón.</p>
+    </div>
+    <div class="actions">
+        {% if not socio.fecha_baja %}
+        <a href="{{ url_for('socios.editar', id=socio.id) }}" class="btn btn-secondary btn-sm">
+            {% if usuario_actual and usuario_actual.puede_editar('socios') %}
+            <i class="fas fa-edit"></i> Editar
+            {% endif %}
+        </a>
+        {% endif %}
+        <a href="{{ url_for('socios.listar') }}" class="btn btn-secondary btn-sm">Volver</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-id-card" aria-hidden="true"></i> Datos del socio</h2>
+    </div>
+    <div class="card-body">
+        <div class="socio-detalle">
+            {# ============ FOTO ============ #}
+            <div class="socio-foto">
+                {% if socio.tiene_foto %}
+                    <img src="{{ url_for('socios.servir_foto', id=socio.id, v=socio.foto_actualizada_at.strftime('%Y%m%d%H%M%S%f')) }}"
+                         alt="Foto de {{ socio.apellido }}, {{ socio.nombre }}"
+                         class="socio-foto__img">
+                {% else %}
+                    <div class="socio-foto__placeholder">
+                        <i class="fas fa-user" aria-hidden="true"></i>
+                    </div>
+                    <p class="socio-foto__hint">Sin foto</p>
+                {% endif %}
+            </div>
+            <div class="detail-grid">
+                <dl class="detail-list">
+                    <dt>Número de Socio</dt>
+                    <dd>{{ socio.numero_socio }}</dd>
+                    <dt>Apellido</dt>
+                    <dd>{{ socio.apellido }}</dd>
+                    <dt>Nombre</dt>
+                    <dd>{{ socio.nombre }}</dd>
+                    <dt>Documento</dt>
+                    <dd>{{ socio.tipo_documento }}: {{ socio.nro_documento }}</dd>
+                    <dt>Email</dt>
+                    <dd>{{ socio.email or '-' }}</dd>
+                    <dt>Teléfono</dt>
+                    <dd>{{ socio.telefono or '-' }}</dd>
+                </dl>
+                <dl class="detail-list">
+                    <dt>Tipo de Socio</dt>
+                    <dd>{{ socio.tipo_socio_rel.nombre|capitalize if socio.tipo_socio_rel else '-' }}</dd>
+                    <dt>Categoría</dt>
+                    <dd>{{ socio.categoria_socio_rel.nombre|capitalize if socio.categoria_socio_rel else '-' }}</dd>
+                    <dt>Fecha de Alta</dt>
+                    <dd>{{ socio.fecha_alta.strftime('%d/%m/%Y %H:%M') if socio.fecha_alta else '-' }}</dd>
+                    <dt>Fecha de Baja</dt>
+                    <dd>{{ socio.fecha_baja.strftime('%d/%m/%Y %H:%M') if socio.fecha_baja else 'Activo' }}</dd>
+                    {% if socio.id_familia %}
+                        <dt>Familia</dt>
+                        <dd>{{ socio.familia.numero_socio }} - {{ socio.familia.apellido }}, {{ socio.familia.nombre }}</dd>
+                    {% endif %}
+                    <dt>Estado</dt>
+                    <dd>
+                        <span class="badge bg-{{ 'success' if not socio.fecha_baja else 'danger' }}">
+                            {{ 'Activo' if not socio.fecha_baja else 'Inactivo' }}
+                        </span>
+                    </dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Lista de miembros de la familia (si es socio principal) -->
+{% if not socio.id_familia %}
+<div class="card">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-users" aria-hidden="true"></i> Miembros de la Familia</h2>
+    </div>
+    <div class="card-body">
+        <ul class="list-group">
+            {% for miembro in socio.miembros_familia if miembro.id != socio.id %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    {% if miembro.tiene_foto %}
+                        <img src="{{ url_for('socios.servir_foto', id=miembro.id, v=miembro.foto_actualizada_at.strftime('%Y%m%d%H%M%S')) }}"
+                             alt=""
+                             class="rounded-circle me-2"
+                             style="width: 32px; height: 32px; object-fit: cover;">
+                    {% else %}
+                        <span class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center me-2"
+                              style="width: 32px; height: 32px;">
+                            <i class="fas fa-user text-muted"></i>
+                        </span>
+                    {% endif %}
+                    <a href="{{ url_for('socios.detalle', id=miembro.id) }}"
+                       class="text-decoration-none">
+                        {{ miembro.numero_socio }} - {{ miembro.apellido }}, {{ miembro.nombre }}
+                    </a>
+                </div>
+                <span class="badge bg-{{ 'success' if not miembro.fecha_baja else 'danger' }}">
+                    {{ 'Activo' if not miembro.fecha_baja else 'Inactivo' }}
+                </span>
+            </li>
+            {% else %}
+            <li class="list-group-item">
+                <div class="empty">
+                    <i class="fas fa-users" aria-hidden="true"></i>
+                    No hay miembros registrados en esta familia.
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}
+
+<!-- Cuotas del socio -->
+<div class="card">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-hand-holding-usd" aria-hidden="true"></i> Cuotas del Socio</h2>
+    </div>
+    <div class="card-body">
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Período</th>
+                            <th class="text-end">Monto</th>
+                            <th>Vencimiento</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cuota in socio.cuotas|sort(attribute='periodo', reverse=True) %}
+                        <tr>
+                            <td>{{ cuota.periodo }}</td>
+                            <td class="text-end num">${{ "%.2f"|format(cuota.monto) }}</td>
+                            <td>{{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if cuota.estado == 'pagada' else 'warning' if cuota.estado == 'pendiente' else 'danger' }}">
+                                    {{ cuota.estado|capitalize }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4">
+                                <div class="empty">
+                                    <i class="fas fa-receipt" aria-hidden="true"></i>
+                                    No hay cuotas registradas para este socio.
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

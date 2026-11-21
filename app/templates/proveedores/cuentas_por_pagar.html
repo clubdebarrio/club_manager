@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Cuentas por Pagar{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Cuentas por Pagar</h1>
+        <p class="sub">Saldo adeudado a proveedores por compras pendientes de pago.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('proveedores.listar') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver a Proveedores
+        </a>
+    </div>
+</div>
+
+<section class="stat-strip" aria-label="Total adeudado">
+    <div class="stat stat--accent">
+        <p class="stat__label"><i class="fas fa-file-invoice-dollar" aria-hidden="true"></i> Total adeudado a proveedores</p>
+        <p class="stat__value">{{ total_general|pesos }}</p>
+    </div>
+</section>
+
+{% if filas %}
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Proveedor</th>
+                    <th class="text-center">Compras con deuda</th>
+                    <th class="text-end">Saldo adeudado</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for f in filas %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('proveedores.detalle', id=f.proveedor.id) }}">
+                            {{ f.proveedor.nombre }}
+                        </a>
+                    </td>
+                    <td class="text-center num">{{ f.cantidad }}</td>
+                    <td class="text-end num text-danger fw-bold">{{ f.saldo|pesos }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('proveedores.detalle', id=f.proveedor.id) }}"
+                           class="btn btn-sm btn-secondary btn-icon" title="Ver detalle">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <th colspan="2" class="text-end">TOTAL</th>
+                    <th class="text-end num">{{ total_general|pesos }}</th>
+                    <th></th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty">
+    <i class="fas fa-check-circle" aria-hidden="true"></i>
+    No hay deudas pendientes con proveedores.
+</div>
+{% endif %}
+{% endblock %}

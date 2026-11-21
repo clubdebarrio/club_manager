@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Libro Diario{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <a href="{{ url_for('contabilidad.reportes_index') }}"
+           class="text-decoration-none small">
+            <i class="fas fa-arrow-left"></i> Reportes
+        </a>
+        <h1 class="mt-1">Libro Diario</h1>
+        <p class="sub">Asientos del período con el detalle de debe y haber.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.libro_diario_excel',
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            id_cuenta=id_cuenta_filtro or '') }}"
+           class="btn btn-success btn-sm">
+            <i class="fas fa-file-excel"></i> Excel
+        </a>
+        <a href="{{ url_for('contabilidad.libro_diario_pdf',
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            id_cuenta=id_cuenta_filtro or '') }}"
+           class="btn btn-danger btn-sm">
+            <i class="fas fa-file-pdf"></i> PDF
+        </a>
+    </div>
+</div>
+
+{# --- Filtros --- #}
+<form method="GET" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input type="date" name="fecha_desde" class="form-control"
+                   value="{{ fecha_desde }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="fecha_hasta" class="form-control"
+                   value="{{ fecha_hasta }}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Cuenta (opcional)</label>
+            <select name="id_cuenta" class="form-select">
+                <option value="">— Todas —</option>
+                {% for c in cuentas_filtro %}
+                <option value="{{ c.id }}"
+                        {{ 'selected' if id_cuenta_filtro == c.id else '' }}>
+                    {{ c.codigo }} - {{ c.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search"></i> Filtrar
+            </button>
+        </div>
+    </div>
+</form>
+
+{# --- Totales del período --- #}
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="kv">
+            <span class="k">Total Debe</span>
+            <span class="v num">{{ total_debe|pesos }}</span>
+        </div>
+        <div class="kv">
+            <span class="k">Total Haber</span>
+            <span class="v num">{{ total_haber|pesos }}</span>
+        </div>
+        {% set dif = total_debe - total_haber %}
+        <div class="total-line">
+            <span>Diferencia</span>
+            <span class="amount num {{ 'text-success' if dif == 0 else 'text-danger' }}">
+                {{ dif|pesos }}
+            </span>
+        </div>
+    </div>
+</div>
+
+{# --- Asientos --- #}
+{% if asientos_data %}
+    {% for item in asientos_data %}
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="min-w-0">
+                <strong>Asiento #{{ item.asiento.id }}</strong>
+                <span class="text-muted ms-2 small">
+                    {{ item.asiento.fecha.strftime('%d/%m/%Y %H:%M') }}
+                </span>
+                <span class="ms-2">{{ item.asiento.descripcion }}</span>
+            </div>
+            <a href="{{ url_for('contabilidad.detalle', id=item.asiento.id) }}"
+               class="btn btn-sm btn-secondary btn-icon"
+               title="Ver detalle">
+                <i class="fas fa-external-link-alt"></i>
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="tabla-scroll">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 100px;">Código</th>
+                        <th>Cuenta</th>
+                        <th class="text-end" style="width: 140px;">Debe</th>
+                        <th class="text-end" style="width: 140px;">Haber</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for l in item.lineas %}
+                    <tr>
+                        <td class="small nowrap">{{ l.cuenta.codigo }}</td>
+                        <td class="small">{{ l.cuenta.nombre }}</td>
+                        <td class="text-end small num">
+                            {{ l.debe|pesos if l.debe and l.debe > 0 else '—' }}
+                        </td>
+                        <td class="text-end small num">
+                            {{ l.haber|pesos if l.haber and l.haber > 0 else '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="2" class="text-end">Totales:</td>
+                        <td class="text-end num">{{ item.total_debe|pesos }}</td>
+                        <td class="text-end num">{{ item.total_haber|pesos }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    {{ render_pagination(pagination, 'contabilidad.libro_diario', {
+        'fecha_desde': fecha_desde,
+        'fecha_hasta': fecha_hasta,
+        'id_cuenta': id_cuenta_filtro or '',
+    }) }}
+{% else %}
+<div class="empty">
+    <i class="fas fa-book" aria-hidden="true"></i>
+    No hay asientos en el período seleccionado.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,47 @@
+para ejecutar psql, primero cargar variable de supabase
+activate-supabase.ps1
+docker run --rm -it postgres:16 psql "postgresql://postgres.ttnaucudygmuxbbljnxy:BI4NNNu0fKsChtGN@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
+
+https://692d-45-234-173-181.ngrok-free.app/webhooks/chytapay
+
+----------------------------------------------------
+
+para cargar token de comercios
+from app import db
+from app.models.chytapay import ChytaPayToken
+from datetime import datetime, timedelta
+
+# 🔑 NUEVOS TOKENS (reemplaza con los que te dieron)
+NUEVO_ID_TOKEN = "eyJraWQiOiJ......"
+NUEVO_REFRESH_TOKEN = "eyJraWQiOiJ......."
+
+# Actualizar el token existente
+token = ChytaPayToken.query.first()
+if token:
+    token.access_token = NUEVO_ID_TOKEN
+    token.refresh_token = NUEVO_REFRESH_TOKEN
+    token.expires_at = datetime.utcnow() + timedelta(hours=1)  # 1 hora de validez
+    print("✅ Token actualizado")
+else:
+    # Si no existe, crear uno nuevo
+    token = ChytaPayToken(
+        access_token=NUEVO_ID_TOKEN,
+        refresh_token=NUEVO_REFRESH_TOKEN,
+        expires_at=datetime.utcnow() + timedelta(hours=1)
+    )
+    db.session.add(token)
+    print("✅ Token creado")
+
+db.session.commit()
+print(f"✅ Tokens guardados. Expira: {token.expires_at}")
+
+
+------------------------
+GENERAR PAGO 
+$body = '{"referenceId":"CLUB-25-20260723010822","state":"total_payment"}'
+curl -X POST -H "Content-Type: application/json" -H "Validation-Token: Fede20280126382Rico" -d $body https://692d-45-234-173-181.ngrok-free.app/webhooks/chytapay
+
+
+PAGO EXPIRADO
+$body = '{"referenceId":"CLUB-13-20260721011521","state":"expired"}'
+curl -X POST -H "Content-Type: application/json" -H "Validation-Token: Fede20280126382Rico" -d $body https://3963-45-234-173-215.ngrok-free.app/webhooks/chytapay

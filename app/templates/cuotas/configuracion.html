@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Configuración de Montos de Cuota{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Montos de Cuota</h1>
+        <p class="sub">{{ configs|length }} configuración{{ 'es' if configs|length != 1 else '' }} · valores por tipo y categoría</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('cuotas.listar') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="form-card">
+                <h2 class="section-title"><i class="fas fa-plus-circle" aria-hidden="true"></i> Nueva configuración</h2>
+                <p class="section-sub">Definí el monto para un tipo y categoría desde una fecha.</p>
+                <div class="mb-3">
+                    {{ form.id_tipo_socio.label(class="form-label") }}
+                    {{ form.id_tipo_socio(class="form-select" + (" is-invalid" if form.id_tipo_socio.errors else "")) }}
+                    {% for error in form.id_tipo_socio.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.id_categoria_socio.label(class="form-label") }}
+                    {{ form.id_categoria_socio(class="form-select" + (" is-invalid" if form.id_categoria_socio.errors else "")) }}
+                    {% for error in form.id_categoria_socio.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="mb-3">
+                    {{ form.monto.label(class="form-label") }}
+                    {{ form.monto(class="form-control money-input" + (" is-invalid" if form.monto.errors else ""), placeholder="0.00", type="text") }}
+                    {% for error in form.monto.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.fecha_desde.label(class="form-label") }}
+                        {{ form.fecha_desde(class="form-control" + (" is-invalid" if form.fecha_desde.errors else "")) }}
+                        {% for error in form.fecha_desde.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.fecha_hasta.label(class="form-label") }}
+                        {{ form.fecha_hasta(class="form-control" + (" is-invalid" if form.fecha_hasta.errors else "")) }}
+                        <small class="form-text text-muted">
+                            Dejalo vacío si no tiene fecha de fin.
+                        </small>
+                        {% for error in form.fecha_hasta.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save" aria-hidden="true"></i> Guardar Configuración
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Tipo</th>
+                            <th scope="col">Categoría</th>
+                            <th scope="col" class="text-end">Monto</th>
+                            <th scope="col">Vigencia</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col" class="text-end"><span class="visually-hidden">Acciones</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for config in configs %}
+                        <tr>
+                            <td>{{ config.tipo_socio.nombre }}</td>
+                            <td>{{ config.categoria_socio.nombre }}</td>
+                            <td class="text-end text-nowrap num">
+                                {{ config.monto|pesos }}
+                            </td>
+                            <td class="small text-nowrap">
+                                {{ config.fecha_desde.strftime('%d/%m/%Y') }}
+                                {% if config.fecha_hasta %}
+                                    → {{ config.fecha_hasta.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    → vigente
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if config.fecha_desde > today %}
+                                    <span class="badge bg-info text-dark">
+                                        Futura
+                                    </span>
+                                {% elif config.fecha_hasta and config.fecha_hasta < today %}
+                                    <span class="badge bg-secondary">
+                                        Vencida
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-success">
+                                        Vigente
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="POST"
+                                      action="{{ url_for('cuotas.eliminar_configuracion', id=config.id) }}"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('¿Eliminar esta configuración?\n\n{{ config.tipo_socio.nombre }} / {{ config.categoria_socio.nombre }}\n${{ config.monto }}\n\nEsta acción no se puede deshacer.')">
+                                    <button type="submit"
+                                            class="btn btn-sm btn-outline-danger btn-icon"
+                                            title="Eliminar"
+                                            aria-label="Eliminar configuración {{ config.tipo_socio.nombre }} / {{ config.categoria_socio.nombre }}">
+                                        <i class="fas fa-trash" aria-hidden="true"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty">
+                                    <i class="fas fa-sliders" aria-hidden="true"></i>
+                                    No hay configuraciones.
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="alert alert-info mt-3 small mb-0">
+            <i class="fas fa-info-circle" aria-hidden="true"></i>
+            <strong>Cómo funciona:</strong> cuando agregás una nueva
+            configuración para el mismo tipo y categoría, las anteriores
+            se cierran automáticamente un día antes.
+        </div>
+    </div>
+</div>
+{% endblock %}

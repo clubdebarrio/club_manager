@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Cheques Vencidos{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Cheques Vencidos</h1>
+        <p class="sub">Cheques con fecha de cobro vencida y sin cobrar.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('caja.index') }}" class="btn btn-secondary btn-sm">Volver</a>
+        <a href="{{ url_for('cheques.listar') }}" class="btn btn-secondary btn-sm">Ir a Cartera</a>
+    </div>
+</div>
+
+{% if cheques %}
+<div class="alert alert-danger">
+    <i class="fas fa-exclamation-triangle"></i> Los siguientes cheques tienen fecha de cobro vencida y no han sido cobrados.
+</div>
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Número</th>
+                    <th>Banco</th>
+                    <th>Titular</th>
+                    <th class="text-end">Monto</th>
+                    <th>Vencimiento</th>
+                    <th>Tipo</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cheque in cheques %}
+                <tr class="table-danger">
+                    <td class="nowrap">{{ cheque.numero }}</td>
+                    <td>{{ cheque.banco_emisor }}</td>
+                    <td>{{ cheque.titular }}</td>
+                    <td class="text-end num">{{ cheque.monto|pesos(0) }}</td>
+                    <td class="nowrap">{{ cheque.fecha_cobro.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'info' if cheque.tipo == 'recibido' else 'secondary' }}">
+                            {{ 'Recibido' if cheque.tipo == 'recibido' else 'Emitido' }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-danger">{{ cheque.estado|capitalize }}</span>
+                    </td>
+                    <td class="text-end">
+                        <div class="d-flex gap-1 justify-content-end flex-wrap">
+                            <a href="{{ url_for('cheques.editar', id=cheque.id) }}"
+                               class="btn btn-sm btn-secondary btn-icon" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            {% if cheque.estado == 'vencido' %}
+                                <form action="{{ url_for('cheques.cambiar_estado', id=cheque.id, estado='en_cartera') }}" method="POST">
+                                    <button type="submit" class="btn btn-sm btn-success">Reactivar</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="empty">
+    <i class="fas fa-check-circle" aria-hidden="true"></i>
+    No hay cheques vencidos.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if reserva else 'Nueva' }} Reserva{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if reserva else 'Nueva' }} Reserva</h1>
+        <p class="sub">Instalación, socio, horario y monto · el precio se sugiere automáticamente.</p>
+    </div>
+</div>
+
+<form method="POST" novalidate id="form-reserva">
+    {{ form.hidden_tag() }}
+    {{ form.precio_sugerido(id="precio_sugerido") }}
+
+    <div class="form-card">
+        <h2 class="section-title"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Datos de la reserva</h2>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.id_instalacion.label(class="form-label") }}
+                {{ form.id_instalacion(class="form-select" + (" is-invalid" if form.id_instalacion.errors else ""), id="id_instalacion") }}
+                {% for error in form.id_instalacion.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.id_socio.label(class="form-label") }}
+                {{ form.id_socio(class="form-select" + (" is-invalid" if form.id_socio.errors else ""), id="id_socio") }}
+                {% for error in form.id_socio.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-md-6">
+                <label class="form-label">Inicio</label>
+                <div class="row g-2">
+                    <div class="col-7">
+                        {{ form.fecha_inicio_fecha(class="form-control" + (" is-invalid" if form.fecha_inicio_fecha.errors else ""), id="fecha_inicio_fecha") }}
+                    </div>
+                    <div class="col-5">
+                        {{ form.fecha_inicio_hora(class="form-select" + (" is-invalid" if form.fecha_inicio_hora.errors else ""), id="fecha_inicio_hora") }}
+                    </div>
+                </div>
+                {% for error in form.fecha_inicio_fecha.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+                {% for error in form.fecha_inicio_hora.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Fin</label>
+                <div class="row g-2">
+                    <div class="col-7">
+                        {{ form.fecha_fin_fecha(class="form-control" + (" is-invalid" if form.fecha_fin_fecha.errors else ""), id="fecha_fin_fecha") }}
+                    </div>
+                    <div class="col-5">
+                        {{ form.fecha_fin_hora(class="form-select" + (" is-invalid" if form.fecha_fin_hora.errors else ""), id="fecha_fin_hora") }}
+                    </div>
+                </div>
+                {% for error in form.fecha_fin_fecha.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+                {% for error in form.fecha_fin_hora.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-md-6">
+                {{ form.motivo.label(class="form-label") }}
+                {{ form.motivo(class="form-control" + (" is-invalid" if form.motivo.errors else "")) }}
+                {% for error in form.motivo.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                <label class="form-label d-flex justify-content-between">
+                    <span>{{ form.monto_total.label.text }}</span>
+                    <button type="button" id="btn_recalcular"
+                            class="btn btn-sm btn-link p-0 text-decoration-none"
+                            title="Volver al precio sugerido">
+                        ↻ Recalcular
+                    </button>
+                </label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    {{ form.monto_total(class="form-control money-input" + (" is-invalid" if form.monto_total.errors else ""), id="monto_total", type="text") }}
+                </div>
+                <small class="form-text" id="monto_info">
+                    <span id="monto_estado" class="text-muted"></span>
+                </small>
+                {% for error in form.monto_total.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="mb-0">
+            {{ form.observaciones.label(class="form-label") }}
+            {{ form.observaciones(class="form-control", rows=3) }}
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('reservas.listar') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    
+    // ==========================================
+    // 1. Inicializar Select2 en los desplegables
+    // ==========================================
+    if (typeof jQuery !== 'undefined') {
+        // Buscador de Instalaciones
+        jQuery('#id_instalacion').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Buscar instalación...'
+        });
+
+        // Buscador de Socios
+        jQuery('#id_socio').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Buscar socio...'
+        });
+
+        // Forzar el foco en el campo de texto al abrir
+        jQuery(document).on('select2:open', function () {
+            let allFound = document.querySelectorAll('.select2-container--open .select2-search__field');
+            if (allFound.length > 0) {
+                allFound[allFound.length - 1].focus();
+            }
+        });
+    }
+
+    // ==========================================
+    // 2. Lógica de cálculo de precio automático
+    // ==========================================
+    var instalacion = document.getElementById('id_instalacion');
+    var fiFecha = document.getElementById('fecha_inicio_fecha');
+    var fiHora = document.getElementById('fecha_inicio_hora');
+    var ffFecha = document.getElementById('fecha_fin_fecha');
+    var ffHora = document.getElementById('fecha_fin_hora');
+    var montoInput = document.getElementById('monto_total');
+    var precioSugeridoInput = document.getElementById('precio_sugerido');
+    var btnRecalcular = document.getElementById('btn_recalcular');
+    var montoEstado = document.getElementById('monto_estado');
+
+    var montoModificadoManualmente = false;
+    var ultimoSugerido = null;
+
+    function setMonto(value, esSugerido) {
+        if (value === null || value === undefined) return;
+        montoInput.value = parseFloat(value).toFixed(2);
+        if (esSugerido) {
+            ultimoSugerido = parseFloat(value).toFixed(2);
+            precioSugeridoInput.value = ultimoSugerido;
+            montoEstado.textContent = 'Precio sugerido por el sistema.';
+            montoEstado.className = 'text-muted';
+        }
+    }
+
+    function marcarModificado() {
+        if (ultimoSugerido === null) return;
+        var actual = parseFloat(montoInput.value).toFixed(2);
+        if (actual === ultimoSugerido) {
+            montoEstado.textContent = 'Precio sugerido por el sistema.';
+            montoEstado.className = 'text-muted';
+        } else {
+            montoEstado.textContent = '⚠ Precio modificado manualmente. Sugerido: $' + ultimoSugerido;
+            montoEstado.className = 'text-warning';
+        }
+    }
+
+    function calcularSugerido() {
+        if (montoModificadoManualmente) return;
+        if (!instalacion.value) return;
+        if (!fiFecha.value || !fiHora.value || !ffFecha.value || !ffHora.value) return;
+
+        var fi = fiFecha.value + 'T' + fiHora.value + ':00';
+        var ff = ffFecha.value + 'T' + ffHora.value + ':00';
+
+        fetch('{{ url_for("reservas.api_calcular_monto") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                id_instalacion: parseInt(instalacion.value),
+                fecha_inicio: fi,
+                fecha_fin: ff,
+            })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error || data.monto === null) {
+                montoEstado.textContent = data.error || '';
+                montoEstado.className = 'text-danger';
+                return;
+            }
+            setMonto(data.monto, true);
+        })
+        .catch(function () { /* silencioso */ });
+    }
+
+    montoInput.addEventListener('input', function () {
+        montoModificadoManualmente = true;
+        marcarModificado();
+    });
+
+    btnRecalcular.addEventListener('click', function () {
+        montoModificadoManualmente = false;
+        calcularSugerido();
+    });
+
+    // Recalcular al cambiar cualquier input relevante.
+    // NOTA: select2 dispara el evento 'change' en el select original
+    // cuando se selecciona una opción, así que esto funciona igual.
+    [instalacion, fiFecha, fiHora, ffFecha, ffHora].forEach(function (el) {
+        el.addEventListener('change', calcularSugerido);
+    });
+
+    if (montoInput.value) {
+        ultimoSugerido = parseFloat(montoInput.value).toFixed(2);
+        precioSugeridoInput.value = ultimoSugerido;
+        montoEstado.textContent = 'Precio actual de la reserva.';
+        montoEstado.className = 'text-muted';
+    } else {
+        calcularSugerido();
+    }
+});
+</script>
+{% endblock %}

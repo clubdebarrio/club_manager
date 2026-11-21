@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}ChytaPay{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1><i class="fas fa-link" aria-hidden="true"></i> ChytaPay</h1>
+        <p class="sub">Cobro de cuotas por transferencia digital</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('main.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+{# --- Estado de la conexión --- #}
+<div class="card mb-4">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-plug" aria-hidden="true"></i> Estado de la conexión</h2>
+    </div>
+    <div class="card-body">
+        <div class="row align-items-center g-3">
+            <div class="col-md-8">
+                <p class="mb-1">
+                    {% if token_info.conectado and not token_info.expirado %}
+                        <span class="chip chip--ok">
+                            <i class="fas fa-check-circle" aria-hidden="true"></i> Cuenta conectada
+                        </span>
+                    {% elif token_info.conectado and token_info.expirado %}
+                        <span class="chip chip--warn">
+                            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Token vencido
+                        </span>
+                    {% else %}
+                        <span class="chip chip--bad">
+                            <i class="fas fa-times-circle" aria-hidden="true"></i> Sin conectar
+                        </span>
+                    {% endif %}
+                </p>
+                <p class="text-muted mb-0 small">
+                    {% if token_info.conectado %}
+                        Última conexión:
+                        {{ token_info.ultima_conexion.strftime('%d/%m/%Y a las %H:%M') if token_info.ultima_conexion else '—' }}
+                        ·
+                        Expira:
+                        {{ token_info.expira_en.strftime('%d/%m/%Y %H:%M') if token_info.expira_en else '—' }}
+                    {% else %}
+                        Conectá tu cuenta de ChytaPay para poder cobrar
+                        cuotas por transferencia digital y recibir
+                        notificaciones automáticas cuando tus socios pagan.
+                    {% endif %}
+                </p>
+            </div>
+            <div class="col-md-4 text-end">
+                {% if empresa.puede_usar_chytapay %}
+                    {% if token_info.conectado and not token_info.expirado %}
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-conectar-chytapay"
+                                data-modo="reconectar">
+                            <i class="fas fa-sync" aria-hidden="true"></i> Reconectar
+                        </button>
+                    {% else %}
+                        <button type="button"
+                                class="btn btn-primary btn-conectar-chytapay"
+                                data-modo="conectar">
+                            <i class="fas fa-link" aria-hidden="true"></i> Conectar cuenta
+                        </button>
+                    {% endif %}
+                {% else %}
+                    <button class="btn btn-secondary" disabled
+                            title="No habilitado para Trial">
+                        <i class="fas fa-lock" aria-hidden="true"></i> No habilitado
+                    </button>
+                    <p class="text-muted small mb-0 mt-2">
+                        ChytaPay está disponible en planes pagos.
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- Resumen --- #}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title">Socios con WhatsApp activo</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-1">{{ stats.socios_con_whatsapp }}</p>
+                <p class="text-muted small mb-0">
+                    Reciben link de pago automáticamente
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title">Cuotas esperando pago digital</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-1">{{ stats.cuotas_con_cvu }}</p>
+                <p class="text-muted small mb-0">
+                    Link enviado, sin pagar todavía
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title">Cobradas digitalmente</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-1">{{ stats.cuotas_pagadas_digital }}</p>
+                <p class="text-muted small mb-0">Total histórico</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- Cómo funciona --- #}
+<div class="card">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-info-circle" aria-hidden="true"></i> Cómo funciona</h2>
+    </div>
+    <div class="card-body">
+        <ol class="mb-0">
+            <li>
+                Conectás tu cuenta de ChytaPay con un click (arriba).
+            </li>
+            <li>
+                Cuando un socio paga su cuota en efectivo o transferencia,
+                podés <strong>generar un link de pago digital</strong>
+                desde el listado de cuotas. ChytaPay le manda un WhatsApp
+                con el CVU para transferir.
+            </li>
+            <li>
+                Cuando el socio paga, <strong>ChytaPay nos avisa
+                automáticamente</strong> y la cuota se marca como pagada,
+                generando el movimiento y asiento contable.
+            </li>
+            <li>
+                Los socios sin WhatsApp activo no reciben link digital,
+                y se cobran como siempre (efectivo, transferencia manual,
+                etc.).
+            </li>
+        </ol>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var botones = document.querySelectorAll('.btn-conectar-chytapay');
+
+    botones.forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+
+            var modo = btn.dataset.modo || 'conectar';
+            if (modo === 'reconectar' &&
+                !confirm('¿Reconectar? Se va a reautorizar tu cuenta.')) {
+                return;
+            }
+
+            // Calcular tamaño y posición del popup centrado
+            var w = 600, h = 720;
+            var left = Math.max(0, (window.screen.width - w) / 2);
+            var top = Math.max(0, (window.screen.height - h) / 2);
+
+            var popup = window.open(
+                '{{ url_for("oauth.iniciar_oauth") }}',
+                'chytapay_oauth',
+                'width=' + w + ',height=' + h +
+                ',left=' + left + ',top=' + top +
+                ',toolbar=no,menubar=no,location=no,status=no'
+            );
+
+            if (!popup) {
+                alert(
+                    'Tu navegador bloqueó la ventana emergente.\n\n' +
+                    'Permití las ventanas emergentes para este sitio ' +
+                    'y volvé a intentar.'
+                );
+            }
+        });
+    });
+
+    // Escuchar el mensaje del popup cuando termina
+    window.addEventListener('message', function (event) {
+        if (!event.data || event.data.type !== 'chytapay_oauth_done') {
+            return;
+        }
+        if (event.data.success) {
+            // Recargar la página para que muestre el nuevo estado
+            window.location.reload();
+        } else {
+            alert(
+                'No se pudo conectar la cuenta:\n\n' +
+                (event.data.error || 'Error desconocido')
+            );
+        }
+    });
+});
+</script>
+{% endblock %}

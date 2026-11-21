@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Reservas{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Reservas</h1>
+        <p class="sub">Alquiler de instalaciones · cobro y estado de cada reserva.</p>
+    </div>
+    <div class="actions">
+        <div class="btn-group">
+            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="fas fa-download"></i> Exportar
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="{{ url_for('reservas.reporte', formato='excel') }}">Excel</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('reservas.reporte', formato='pdf') }}">PDF</a></li>
+            </ul>
+        </div>
+        <a href="{{ url_for('reservas.calendario') }}" class="btn btn-info btn-sm">
+            <i class="fas fa-calendar-alt"></i> Calendario
+        </a>
+        {% if usuario_actual and usuario_actual.puede_editar('reservas') %}
+        <a href="{{ url_for('reservas.nueva') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus"></i> Nueva Reserva
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Buscador -->
+<form method="GET" id="form-busqueda" class="filter-bar">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6">
+            <input type="text" id="buscador" name="q" class="form-control"
+                   placeholder="Buscar por socio, instalación o # de reserva..."
+                   value="{{ query or '' }}" autofocus>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">Buscar</button>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('reservas.listar') }}" class="btn btn-secondary w-100">Limpiar</a>
+        </div>
+    </div>
+</form>
+
+<div class="tabla-wrap">
+<div class="table-responsive">
+<table class="table table-hover align-middle">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Instalación</th>
+            <th>Socio</th>
+            <th>Fecha/Hora</th>
+            <th class="text-end">Monto</th>
+            <th>Cobro</th>
+            <th>Estado</th>
+            <th class="text-end">Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in reservas %}
+        {% set estado_mostrar = r.estado_efectivo %}
+        {% set pendiente = r.saldo_pendiente %}
+        <tr>
+            <td>{{ r.id }}</td>
+            <td>{{ r.instalacion.nombre }}</td>
+            <td>{{ r.socio.apellido ~ ', ' ~ r.socio.nombre if r.socio else 'No Socio' }}</td>
+            <td class="nowrap">
+                {{ r.fecha_inicio|localdatetime }} - {{ r.fecha_fin|localdatetime }}
+            </td>
+            <td class="text-end">{{ r.monto_total|pesos(0) }}</td>
+
+            {# -------- Columna "Cobro" -------- #}
+            <td>
+                {% if estado_mostrar == 'cancelada' %}
+                    <span class="text-muted">—</span>
+                {% elif r.esta_pagada %}
+                    <span class="badge bg-success">
+                        <i class="fas fa-check"></i> Pagada
+                    </span>
+                {% elif r.total_pagado > 0 %}
+                    <span class="badge bg-warning text-dark"
+                          title="Cobrado {{ r.total_pagado|pesos }} de {{ r.monto_total|pesos }}">
+                        Debe {{ pendiente|pesos(0) }}
+                    </span>
+                {% else %}
+                    <span class="badge bg-secondary">
+                        Sin pagar
+                    </span>
+                {% endif %}
+            </td>
+
+            {# -------- Columna "Estado" -------- #}
+            <td>
+                <span class="badge bg-{{
+                    'success' if estado_mostrar == 'confirmada' else
+                    'secondary' if estado_mostrar == 'finalizada' else
+                    'danger' if estado_mostrar == 'cancelada' else
+                    'secondary'
+                }}">
+                    {{ estado_mostrar|capitalize }}
+                </span>
+            </td>
+
+            {# -------- Columna "Acciones" -------- #}
+            <td class="text-end">
+                {% if usuario_actual and usuario_actual.puede_editar('reservas') %}
+                    {% if estado_mostrar != 'cancelada' and not r.esta_pagada %}
+                        <a href="{{ url_for('reservas.pagar', id=r.id) }}"
+                           class="btn btn-sm btn-success"
+                           title="Registrar cobro">
+                            <i class="fas fa-dollar-sign"></i> Cobrar
+                        </a>
+                    {% endif %}
+                {% endif %}
+
+                <a href="{{ url_for('reservas.detalle', id=r.id) }}"
+                   class="btn btn-sm btn-secondary btn-icon"
+                   title="Ver detalle">
+                    <i class="fas fa-folder-open"></i>
+                </a>
+
+                {% if usuario_actual and usuario_actual.puede_editar('reservas') %}
+                <a href="{{ url_for('reservas.editar', id=r.id) }}"
+                   class="btn btn-sm btn-secondary btn-icon"
+                   title="Editar reserva">
+                    <i class="fas fa-edit"></i>
+                </a>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="8">
+                <div class="empty">
+                    <i class="fas fa-calendar-check" aria-hidden="true"></i>
+                    No hay reservas registradas.
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+</div>
+
+{{ render_pagination(pagination, 'reservas.listar', {'q': query or ''}) }}
+
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador');
+    if (buscador && buscador.value) {
+        buscador.focus();
+        buscador.setSelectionRange(buscador.value.length, buscador.value.length);
+    }
+    const form = document.getElementById('form-busqueda');
+    if (buscador && form) {
+        let timeout = null;
+        buscador.addEventListener('input', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => form.submit(), 400);
+        });
+        buscador.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(timeout);
+                form.submit();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

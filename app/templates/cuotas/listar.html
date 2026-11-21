@@ -1,0 +1,441 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Cuotas Sociales{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Cuotas Sociales</h1>
+        <p class="sub">
+            {% if pagination and pagination.total is not none %}{{ pagination.total }} cuota{{ 's' if pagination.total != 1 else '' }} en total
+            {% else %}{{ cuotas|length }} cuota{{ 's' if cuotas|length != 1 else '' }} en esta página{% endif %}
+            · cobro y seguimiento mensual
+        </p>
+    </div>
+    <div class="actions">
+        {% if usuario_actual and usuario_actual.puede_editar('cuotas') %}
+        <a href="{{ url_for('cuotas.generar') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus" aria-hidden="true"></i> Generar Cuotas
+        </a>
+        <a href="{{ url_for('cuotas.configuracion') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-cog" aria-hidden="true"></i> Configurar Montos
+        </a>
+        {% endif %}
+        <a href="{{ url_for('cuotas.imprimir_seleccionar_mes') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-print" aria-hidden="true"></i> Imprimir Cuotas
+        </a>
+        {% if empresa_actual and empresa_actual.puede_usar_chytapay %}
+        <a href="{{ url_for('config.chytapay_panel') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-link" aria-hidden="true"></i> ChytaPay
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Buscador dinámico con auto-submit (server-side) -->
+<div class="filter-bar">
+    <form method="GET" id="form-busqueda" class="card mb-3">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label for="buscador" class="form-label">Buscar socio</label>
+                    <input type="text" id="buscador" name="q" class="form-control" 
+                        placeholder="Apellido o nombre..." 
+                        value="{{ query or '' }}" autofocus>
+                </div>
+                <div class="col-md-2">
+                    <label for="periodo" class="form-label">Período</label>
+                    <input type="text" id="periodo" name="periodo" class="form-control" 
+                        placeholder="Ej: 2026-10" 
+                        value="{{ periodo or '' }}">
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="solo_vencidas" 
+                            value="1" id="solo_vencidas" {{ 'checked' if solo_vencidas else '' }}>
+                        <label class="form-check-label text-danger fw-bold" for="solo_vencidas">
+                            <i class="fas fa-exclamation-triangle"></i> Mostrar solo vencidas
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Filtrar</button>
+                </div>
+                <div class="col-md-1">
+                    <a href="{{ url_for('cuotas.listar') }}" class="btn btn-secondary w-100" title="Limpiar filtros">
+                        <i class="fas fa-eraser"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th scope="col">Período</th>
+                    <th scope="col">Socio</th>
+                    <th scope="col" class="text-end">Monto</th>
+                    <th scope="col">Vencimiento</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" style="width: 180px;">ChytaPay</th>
+                    <th scope="col">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cuota in cuotas %}
+                <tr>
+                    <td class="text-nowrap">{{ cuota.periodo }}</td>
+                    <td>{{ cuota.socio.apellido }}, {{ cuota.socio.nombre }}</td>
+                    
+                    <!-- MONTO CON DESGLOSE DE ADICIONALES -->
+                    <td class="text-end text-nowrap num">
+                        <strong>{{ cuota.monto|pesos(0) }}</strong>
+                        {% if cuota.detalle_adicionales %}
+                            <i class="fas fa-info-circle text-primary ms-1" 
+                               title="Incluye adicionales: {{ cuota.detalle_adicionales }}"
+                               style="cursor: help;"></i>
+                        {% endif %}
+                    </td>
+                    
+                    <td class="text-nowrap">{{ cuota.fecha_vencimiento.strftime('%d/%m/%Y') }}</td>
+                    <td>
+                        <span class="badge bg-{{ 'success' if cuota.estado == 'pagada' else 'warning' if cuota.estado == 'pendiente' else 'danger' }}">
+                            {{ cuota.estado|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        {# ================== COLUMNA CHYTAPAY ================== #}
+                        {% if cuota.estado == 'pagada' and cuota.chytapay_cvu %}
+                            {# Cobrada digitalmente #}
+                            <span class="badge bg-success" title="Pago recibido digitalmente">
+                                <i class="fas fa-check-circle"></i> Cobrada digital
+                            </span>
+                        {% elif cuota.chytapay_cvu and cuota.estado == 'pendiente' %}
+                            {# CVU generado, esperando pago #}
+                            <span class="badge bg-warning text-dark"
+                                  title="CVU enviado, esperando que el socio pague">
+                                <i class="fas fa-hourglass-half"></i> Esperando pago
+                            </span>
+                            <button class="btn btn-sm btn-secondary btn-icon ver-cvu"
+                                    data-cvu="{{ cuota.chytapay_cvu }}"
+                                    data-socio="{{ cuota.socio.apellido }} {{ cuota.socio.nombre }}"
+                                    data-monto="{{ cuota.monto }}"
+                                    data-periodo="{{ cuota.periodo }}"
+                                    title="Ver CVU">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        {% elif cuota.estado == 'pendiente'
+                                and cuota.socio.enviar_cuota_whatsapp
+                                and empresa_actual and empresa_actual.puede_usar_chytapay %}
+                            {# Puede generar el link de pago #}
+                            <button class="btn btn-sm btn-primary generar-pago-digital"
+                                    data-id="{{ cuota.id }}"
+                                    data-socio="{{ cuota.socio.apellido }} {{ cuota.socio.nombre }}"
+                                    data-periodo="{{ cuota.periodo }}"
+                                    data-monto="{{ cuota.monto }}"
+                                    title="Generar link de pago y enviar por WhatsApp">
+                                <i class="fas fa-link"></i> Generar pago
+                            </button>
+                        {% elif cuota.estado == 'pendiente' and not cuota.socio.enviar_cuota_whatsapp %}
+                            {# Socio sin WhatsApp activo #}
+                            <span class="text-muted small"
+                                  title="El socio no tiene activada la notificación por WhatsApp">
+                                <i class="fas fa-ban"></i> Sin WhatsApp
+                            </span>
+                        {% elif cuota.estado == 'pendiente' and (not empresa_actual or not empresa_actual.puede_usar_chytapay) %}
+                            {# Club sin ChytaPay habilitado #}
+                            <span class="text-muted small"
+                                  title="ChytaPay no está disponible en este plan">
+                                <i class="fas fa-lock"></i> No disponible
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="btn-group btn-group-sm" role="group">
+                            {% if cuota.estado == 'pendiente' %}
+                                {% if usuario_actual and usuario_actual.puede_editar('cuotas') %}
+                                <a href="{{ url_for('cuotas.pagar', id=cuota.id) }}" class="btn btn-primary">
+                                    <i class="fas fa-check"></i> Pagar
+                                </a>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty">
+                            <i class="fas fa-receipt" aria-hidden="true"></i>
+                            No hay cuotas registradas con estos filtros.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginación reutilizable -->
+{{ render_pagination(pagination, 'cuotas.listar', {'periodo': periodo or '', 'q': query or '', 'solo_vencidas': '1' if solo_vencidas else '0'}) }}
+
+<!-- ===================== MODALES ===================== -->
+
+<!-- Modal de Confirmación -->
+<div class="modal fade" id="modalConfirmarPagoDigital" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar generación de Pago Digital</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas generar un <strong>Pago Digital</strong> para la siguiente cuota?</p>
+                <p><strong>Socio:</strong> <span id="confirm-socio"></span></p>
+                <p><strong>Período:</strong> <span id="confirm-periodo"></span></p>
+                <p>Se enviará una notificación por WhatsApp al socio con los datos de pago.</p>
+                <div id="confirm-error" class="alert alert-danger d-none"></div>
+                <div id="confirm-error-help" class="alert alert-warning d-none mt-2">
+                    <a href="#" id="confirm-error-link">Ir a ChytaPay</a> para resolver el problema.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnConfirmarGenerar">Generar Pago Digital</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Resultado -->
+<div class="modal fade" id="modalResultadoPagoDigital" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle"></i> Pago Digital Generado</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success">
+                    <p><strong>Socio:</strong> <span id="result-socio"></span></p>
+                    <p><strong>Monto:</strong> $<span id="result-monto"></span></p>
+                    <p><strong>Fecha de vencimiento:</strong> <span id="result-fecha"></span></p>
+                    <p><strong>Banco receptor:</strong> <span id="result-banco"></span></p>
+                    <p><strong>Titular:</strong> <span id="result-titular"></span></p>
+                </div>
+                <p class="small text-muted mb-1">CVU:</p>
+                <div class="input-group mb-2">
+                    <input type="text" class="form-control font-monospace"
+                           value="" readonly id="result-cvu-input">
+                    <button class="btn btn-outline-secondary" type="button"
+                            onclick="document.getElementById('result-cvu-input').select(); document.execCommand('copy'); this.innerHTML='✓'">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <p class="text-muted small">El socio recibirá una notificación por WhatsApp con estos datos.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary"
+                        data-bs-dismiss="modal"
+                        onclick="location.reload()">Cerrar y recargar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ver CVU -->
+<div class="modal fade" id="modalVerCvu" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Datos de Pago Digital</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <p><strong>Socio:</strong> <span id="cvu-socio"></span></p>
+                    <p><strong>Período:</strong> <span id="cvu-periodo"></span></p>
+                    <p><strong>Monto:</strong> $<span id="cvu-monto"></span></p>
+                    <p><strong>CVU:</strong> <code id="cvu-codigo" class="font-monospace"></code></p>
+                </div>
+                <p class="text-muted">Comparte este CVU con el socio para que realice la transferencia.</p>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" id="btnCompartirWhatsApp">
+                        <i class="fab fa-whatsapp"></i> Compartir por WhatsApp
+                    </button>
+                    <button class="btn btn-secondary" id="btnCopiarCvu">
+                        <i class="fas fa-copy"></i> Copiar CVU al portapapeles
+                    </button>
+                </div>
+                <div id="cvu-error" class="alert alert-danger d-none mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ---- Auto-submit del buscador ----
+    const buscador = document.getElementById('buscador');
+    if (buscador && buscador.value) {
+        buscador.focus();
+        buscador.setSelectionRange(buscador.value.length, buscador.value.length);
+    }
+    const form = document.getElementById('form-busqueda');
+    if (buscador && form) {
+        let timeout = null;
+        buscador.addEventListener('input', function() {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => form.submit(), 400);
+        });
+        buscador.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                clearTimeout(timeout);
+                form.submit();
+            }
+        });
+    }
+
+    // ---- Modal Pago Digital ----
+    const confirmModal = new bootstrap.Modal(document.getElementById('modalConfirmarPagoDigital'));
+    const resultModal = new bootstrap.Modal(document.getElementById('modalResultadoPagoDigital'));
+    let cuotaId = null;
+    let cuotaSocio = null;
+    let cuotaPeriodo = null;
+
+    document.querySelectorAll('.generar-pago-digital').forEach(btn => {
+        btn.addEventListener('click', function() {
+            cuotaId = this.dataset.id;
+            cuotaSocio = this.dataset.socio;
+            cuotaPeriodo = this.dataset.periodo;
+            document.getElementById('confirm-socio').textContent = cuotaSocio;
+            document.getElementById('confirm-periodo').textContent = cuotaPeriodo;
+            document.getElementById('confirm-error').classList.add('d-none');
+            document.getElementById('confirm-error-help').classList.add('d-none');
+            confirmModal.show();
+        });
+    });
+
+    document.getElementById('btnConfirmarGenerar').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Generando...';
+        const errorDiv = document.getElementById('confirm-error');
+        const helpDiv = document.getElementById('confirm-error-help');
+        const helpLink = document.getElementById('confirm-error-link');
+        errorDiv.classList.add('d-none');
+        helpDiv.classList.add('d-none');
+
+        fetch(`/cuotas/api/generar-pago-digital/${cuotaId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json().then(d => ({ok: response.ok, data: d})))
+        .then(res => {
+            const data = res.data;
+            if (data.error) {
+                errorDiv.textContent = '❌ ' + data.error;
+                errorDiv.classList.remove('d-none');
+                // Link de ayuda según el código de error
+                if (data.code === 'sin_conectar' || data.code === 'plan_no_habilitado') {
+                    helpLink.href = '{{ url_for("config.chytapay_panel") }}';
+                    helpDiv.classList.remove('d-none');
+                } else if (data.code === 'sin_whatsapp') {
+                    helpLink.href = '/socios/editar/' + (data.socio_id || '');
+                    helpDiv.classList.remove('d-none');
+                    helpLink.textContent = 'Editar socio';
+                }
+                btn.disabled = false;
+                btn.innerHTML = 'Generar Pago Digital';
+                return;
+            }
+            // Éxito
+            confirmModal.hide();
+            document.getElementById('result-socio').textContent = cuotaSocio;
+            document.getElementById('result-monto').textContent = parseFloat(data.amount).toFixed(2);
+            document.getElementById('result-fecha').textContent = data.due_date;
+            document.getElementById('result-banco').textContent = data.bank || '—';
+            document.getElementById('result-titular').textContent = data.account_holder || '—';
+            document.getElementById('result-cvu-input').value = data.cvu;
+            resultModal.show();
+            btn.disabled = false;
+            btn.innerHTML = 'Generar Pago Digital';
+        })
+        .catch(error => {
+            errorDiv.textContent = '❌ Error: ' + error.message;
+            errorDiv.classList.remove('d-none');
+            btn.disabled = false;
+            btn.innerHTML = 'Generar Pago Digital';
+        });
+    });
+
+    // ---- Modal Ver CVU ----
+    const modalCvu = new bootstrap.Modal(document.getElementById('modalVerCvu'));
+    let currentCvuData = {};
+
+    document.querySelectorAll('.ver-cvu').forEach(btn => {
+        btn.addEventListener('click', function() {
+            currentCvuData = {
+                cvu: this.dataset.cvu,
+                socio: this.dataset.socio,
+                monto: this.dataset.monto,
+                periodo: this.dataset.periodo
+            };
+            document.getElementById('cvu-socio').textContent = currentCvuData.socio;
+            document.getElementById('cvu-periodo').textContent = currentCvuData.periodo;
+            document.getElementById('cvu-monto').textContent = parseFloat(currentCvuData.monto).toFixed(2);
+            document.getElementById('cvu-codigo').textContent = currentCvuData.cvu;
+            document.getElementById('cvu-error').classList.add('d-none');
+            modalCvu.show();
+        });
+    });
+
+    document.getElementById('btnCompartirWhatsApp').addEventListener('click', function() {
+        const mensaje = `*Datos de pago de cuota*%0A` +
+                        `Socio: ${currentCvuData.socio}%0A` +
+                        `Período: ${currentCvuData.periodo}%0A` +
+                        `Monto: $${parseFloat(currentCvuData.monto).toFixed(2)}%0A` +
+                        `CVU: ${currentCvuData.cvu}%0A%0A` +
+                        `Realizá la transferencia a este CVU y avisanos para confirmar el pago.`;
+        window.open(`https://wa.me/?text=${mensaje}`, '_blank');
+    });
+
+    document.getElementById('btnCopiarCvu').addEventListener('click', function() {
+        navigator.clipboard.writeText(currentCvuData.cvu).then(() => {
+            const btn = this;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+            setTimeout(() => btn.innerHTML = originalText, 2000);
+        }).catch(err => {
+            document.getElementById('cvu-error').textContent = 'Error al copiar: ' + err;
+            document.getElementById('cvu-error').classList.remove('d-none');
+        });
+    });
+    // Auto-submit al cambiar el checkbox de vencidas
+    const checkVencidas = document.getElementById('solo_vencidas');
+    if (checkVencidas) {
+        checkVencidas.addEventListener('change', function() {
+            form.submit();
+        });
+    }    
+});
+</script>
+{% endblock %}

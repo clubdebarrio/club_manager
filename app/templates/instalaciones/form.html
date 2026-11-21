@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if instalacion else 'Nueva' }} Instalación{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if instalacion else 'Nueva' }} Instalación</h1>
+        <p class="sub">Datos del espacio y cómo se cobra su uso.</p>
+    </div>
+</div>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+
+    <div class="form-card">
+        <h2 class="section-title"><i class="fas fa-building" aria-hidden="true"></i> Datos de la instalación</h2>
+
+        <div class="mb-3">
+            {{ form.nombre.label(class="form-label") }}
+            {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+            {% for error in form.nombre.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="mb-3">
+            {{ form.descripcion.label(class="form-label") }}
+            {{ form.descripcion(class="form-control" + (" is-invalid" if form.descripcion.errors else ""), rows=3) }}
+            {% for error in form.descripcion.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.capacidad.label(class="form-label") }}
+                {{ form.capacidad(class="form-control" + (" is-invalid" if form.capacidad.errors else "")) }}
+                {% for error in form.capacidad.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.tipo_cobro.label(class="form-label") }}
+                {{ form.tipo_cobro(class="form-select" + (" is-invalid" if form.tipo_cobro.errors else ""), id="tipo_cobro") }}
+                {% for error in form.tipo_cobro.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-md-6" id="bloque_precio_hora">
+                {{ form.precio_por_hora.label(class="form-label") }}
+                <div class="input-group has-validation">
+                    <span class="input-group-text">$</span>
+                    {{ form.precio_por_hora(class="form-control" + (" is-invalid" if form.precio_por_hora.errors else ""), placeholder="0.00", id="precio_por_hora") }}
+                    <span class="input-group-text">/ hora</span>
+                    {% for error in form.precio_por_hora.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <small class="form-text text-muted">
+                    Se cobra multiplicando por la duración de la reserva.
+                </small>
+            </div>
+
+            <div class="col-md-6" id="bloque_precio_uso" style="display:none;">
+                {{ form.precio_por_uso.label(class="form-label") }}
+                <div class="input-group has-validation">
+                    <span class="input-group-text">$</span>
+                    {{ form.precio_por_uso(class="form-control" + (" is-invalid" if form.precio_por_uso.errors else ""), placeholder="0.00", id="precio_por_uso") }}
+                    <span class="input-group-text">/ uso</span>
+                    {% for error in form.precio_por_uso.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <small class="form-text text-muted">
+                    Precio fijo por reserva, sin importar la duración.
+                </small>
+            </div>
+        </div>
+
+        <div class="mt-3 form-check">
+            {{ form.activo(class="form-check-input") }}
+            {{ form.activo.label(class="form-check-label") }}
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('instalaciones.listar') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var tipoCobro = document.getElementById('tipo_cobro');
+    var bloqueHora = document.getElementById('bloque_precio_hora');
+    var bloqueUso = document.getElementById('bloque_precio_uso');
+    if (!tipoCobro || !bloqueHora || !bloqueUso) return;
+
+    function actualizar() {
+        if (tipoCobro.value === 'por_uso') {
+            bloqueHora.style.display = 'none';
+            bloqueUso.style.display = '';
+        } else {
+            bloqueHora.style.display = '';
+            bloqueUso.style.display = 'none';
+        }
+    }
+    tipoCobro.addEventListener('change', actualizar);
+    actualizar();
+});
+</script>
+{% endblock %}

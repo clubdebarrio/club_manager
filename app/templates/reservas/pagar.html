@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+
+{% block title %}Pagar Reserva #{{ reserva.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Registrar Pago de Reserva</h1>
+        <p class="sub">Cobro de la reserva · monto, medio y cuenta de ingreso.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('reservas.detalle', id=reserva.id) }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Resumen de la reserva -->
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title mb-0"><i class="fas fa-calendar-check" aria-hidden="true"></i> Reserva #{{ reserva.id }}</h2>
+            </div>
+            <div class="card-body">
+                <div class="kv">
+                    <span class="k">Instalación</span>
+                    <span class="v">{{ reserva.instalacion.nombre }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Socio</span>
+                    <span class="v">{{ reserva.socio.apellido ~ ', ' ~ reserva.socio.nombre if reserva.socio else 'No Socio' }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Desde</span>
+                    <span class="v nowrap">{{ reserva.fecha_inicio.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Hasta</span>
+                    <span class="v nowrap">{{ reserva.fecha_fin.strftime('%d/%m/%Y %H:%M') }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Motivo</span>
+                    <span class="v">{{ reserva.motivo }}</span>
+                </div>
+                <div class="total-line">
+                    <span>Monto total</span>
+                    <span class="amount">{{ reserva.monto_total|pesos }}</span>
+                </div>
+                {% if total_pagado %}
+                <div class="kv">
+                    <span class="k">Ya pagado</span>
+                    <span class="v num">{{ total_pagado|pesos }}</span>
+                </div>
+                {% endif %}
+                {% if saldo_pendiente is not none %}
+                <div class="kv">
+                    <span class="k">Saldo pendiente</span>
+                    <span class="v num">{{ saldo_pendiente|pesos }}</span>
+                </div>
+                {% endif %}
+                <div class="kv">
+                    <span class="k">Estado actual</span>
+                    <span class="v">
+                        <span class="badge bg-{{ 'success' if reserva.estado == 'confirmada'
+                                                 else 'warning' if reserva.estado == 'pendiente'
+                                                 else 'secondary' }}">
+                            {{ reserva.estado|capitalize }}
+                        </span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulario de pago -->
+    <div class="col-md-8">
+        <div class="form-card">
+            <h2 class="section-title"><i class="fas fa-cash-register" aria-hidden="true"></i> Datos del pago</h2>
+            <form method="POST" novalidate>
+                {{ form.hidden_tag() }}
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.monto.label(class="form-label") }}
+                        {{ form.monto(class="form-control money-input" + (" is-invalid" if form.monto.errors else ""), placeholder="0.00", type="text",
+                            value=(saldo_pendiente if saldo_pendiente is not none else reserva.monto_total)
+                        ) }}
+                        {% if saldo_pendiente is not none %}
+                        <small class="form-text text-muted">
+                            Saldo pendiente: <strong>{{ saldo_pendiente|pesos }}</strong>
+                        </small>
+                        {% endif %}
+                        {% for error in form.monto.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.fecha_pago.label(class="form-label") }}
+                        {{ form.fecha_pago(class="form-control" + (" is-invalid" if form.fecha_pago.errors else ""), type="datetime-local") }}
+                        {% for error in form.fecha_pago.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="row g-3 mt-0">
+                    <div class="col-md-6">
+                        {{ form.metodo_pago.label(class="form-label") }}
+                        {{ form.metodo_pago(class="form-select" + (" is-invalid" if form.metodo_pago.errors else ""), id="metodo_pago") }}
+                        {% for error in form.metodo_pago.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_cuenta" class="form-label">
+                            {{ form.id_cuenta.label.text }}
+                        </label>
+                        <select name="id_cuenta" id="id_cuenta"
+                                class="form-select {{ 'is-invalid' if form.id_cuenta.errors else '' }}">
+                            <option value="">— Elegir —</option>
+                            {% for c in cuentas_con_tipo %}
+                                <option value="{{ c.id }}" data-tipo="{{ c.tipo }}"
+                                        {{ 'selected' if form.id_cuenta.data == c.id else '' }}>
+                                    {{ c.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">
+                            Cuenta donde ingresa el dinero.
+                        </small>
+                        {% for error in form.id_cuenta.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    {{ form.comprobante.label(class="form-label") }}
+                    {{ form.comprobante(class="form-control" + (" is-invalid" if form.comprobante.errors else "")) }}
+                    {% for error in form.comprobante.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <div class="mt-3">
+                    {{ form.observaciones.label(class="form-label") }}
+                    {{ form.observaciones(class="form-control" + (" is-invalid" if form.observaciones.errors else ""), rows="2") }}
+                    {% for error in form.observaciones.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+
+                <!-- Campo oculto para cheque (lo llena el modal compartido) -->
+                <input type="hidden" name="id_cheque" id="id_cheque" value="0">
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Registrar Pago</button>
+                    <a href="{{ url_for('reservas.detalle', id=reserva.id) }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var metodoPago = document.getElementById('metodo_pago');
+    var selectCuenta = document.getElementById('id_cuenta');
+
+    if (metodoPago && selectCuenta) {
+        // Guardar todas las opciones originales (una sola vez)
+        var todasLasCuentas = [];
+        for (var i = 0; i < selectCuenta.options.length; i++) {
+            var opt = selectCuenta.options[i];
+            todasLasCuentas.push({
+                value: opt.value,
+                text: opt.textContent,
+                tipo: opt.dataset.tipo || ''
+            });
+        }
+
+        function filtrarCuentas() {
+            var metodo = metodoPago.value;
+            var tipoEsperado = null;
+            if (metodo === 'efectivo') {
+                tipoEsperado = 'efectivo';
+            } else if (metodo === 'transferencia'
+                       || metodo === 'debito'
+                       || metodo === 'credito') {
+                tipoEsperado = 'banco';
+            }
+            // 'cheque' permite caja y banco → sin filtro
+
+            var seleccionActual = selectCuenta.value;
+            selectCuenta.innerHTML = '';
+
+            var seleccionSigueDisponible = false;
+            for (var j = 0; j < todasLasCuentas.length; j++) {
+                var c = todasLasCuentas[j];
+                if (c.value === '') {
+                    selectCuenta.appendChild(new Option(c.text, c.value));
+                    continue;
+                }
+                if (tipoEsperado && c.tipo !== tipoEsperado) continue;
+
+                var newOpt = new Option(c.text, c.value);
+                newOpt.dataset.tipo = c.tipo;
+                if (c.value === seleccionActual) {
+                    newOpt.selected = true;
+                    seleccionSigueDisponible = true;
+                }
+                selectCuenta.appendChild(newOpt);
+            }
+
+            // Si la cuenta antes elegida ya no es válida, dejar el placeholder
+            if (!seleccionSigueDisponible && seleccionActual !== '') {
+                selectCuenta.value = '';
+            }
+        }
+
+        metodoPago.addEventListener('change', filtrarCuentas);
+        filtrarCuentas();
+    }
+
+    // --- Modal de cheque (existente) ---
+    if (metodoPago && metodoPago.value === 'cheque') {
+        const monto = parseFloat(document.querySelector('[name="monto"]').value) || 0;
+        window.abrirModalCheque({
+            monto: monto,
+            tipo: 'recibido',
+            origen: 'reserva',
+            select_target: 'id_cheque'
+        });
+    }
+    if (metodoPago) {
+        metodoPago.addEventListener('change', function () {
+            if (this.value === 'cheque') {
+                const monto = parseFloat(document.querySelector('[name="monto"]').value) || 0;
+                window.abrirModalCheque({
+                    monto: monto,
+                    tipo: 'recibido',
+                    origen: 'reserva',
+                    select_target: 'id_cheque'
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,79 @@
+<!-- templates/contabilidad/detalle.html -->
+{% extends "base.html" %}
+
+{% block title %}Detalle de Asiento #{{ asiento.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Asiento Contable #{{ asiento.id }}</h1>
+        <p class="sub">Cabecera del asiento y sus líneas de debe y haber.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.index') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-file-invoice"></i> Datos del asiento</h2>
+    </div>
+    <div class="card-body">
+        <dl class="detail-list">
+            <dt>Fecha</dt>
+            <dd>{{ asiento.fecha|localdatetime }}</dd>
+            <dt>Descripción</dt>
+            <dd>{{ asiento.descripcion }}</dd>
+            <dt>Movimiento origen</dt>
+            <dd>
+                {% if asiento.movimiento %}
+                    <a href="{{ url_for('caja.detalle_cuenta', id=asiento.movimiento.id_cuenta) }}">#{{ asiento.movimiento.id }}</a>
+                {% else %}
+                    -
+                {% endif %}
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<h2 class="section-title mt-3"><i class="fas fa-list-ol"></i> Líneas del Asiento</h2>
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Cuenta</th>
+                    <th>Código</th>
+                    <th class="text-end">Debe</th>
+                    <th class="text-end">Haber</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linea in lineas %}
+                <tr>
+                    <td>{{ linea.cuenta.nombre }}</td>
+                    <td class="nowrap">{{ linea.cuenta.codigo }}</td>
+                    <td class="text-end num">${{ "%.2f"|format(linea.debe) }}</td>
+                    <td class="text-end num">${{ "%.2f"|format(linea.haber) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">
+                        <div class="empty">No hay líneas para este asiento.</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <th colspan="2" class="text-end">Totales:</th>
+                    <th class="text-end num">${{ "%.2f"|format(lineas|sum(attribute='debe')) }}</th>
+                    <th class="text-end num">${{ "%.2f"|format(lineas|sum(attribute='haber')) }}</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+{% endblock %}

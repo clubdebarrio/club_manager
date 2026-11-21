@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Libro Mayor{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <a href="{{ url_for('contabilidad.reportes_index') }}"
+           class="text-decoration-none small">
+            <i class="fas fa-arrow-left"></i> Reportes
+        </a>
+        <h1 class="mt-1">Libro Mayor</h1>
+        <p class="sub">Movimientos por cuenta con saldo acumulado del período.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.libro_mayor_excel',
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            id_cuenta=id_cuenta_filtro or '') }}"
+           class="btn btn-success btn-sm">
+            <i class="fas fa-file-excel"></i> Excel
+        </a>
+        <a href="{{ url_for('contabilidad.libro_mayor_pdf',
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            id_cuenta=id_cuenta_filtro or '') }}"
+           class="btn btn-danger btn-sm">
+            <i class="fas fa-file-pdf"></i> PDF
+        </a>
+    </div>
+</div>
+
+{# --- Filtros --- #}
+<form method="GET" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input type="date" name="fecha_desde" class="form-control"
+                   value="{{ fecha_desde }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="fecha_hasta" class="form-control"
+                   value="{{ fecha_hasta }}" required>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Cuenta</label>
+            <select name="id_cuenta" class="form-select">
+                <option value="">— Todas las cuentas —</option>
+                {% for c in cuentas_filtro %}
+                <option value="{{ c.id }}"
+                        {{ 'selected' if id_cuenta_filtro == c.id else '' }}>
+                    {{ c.codigo }} - {{ c.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search"></i> Filtrar
+            </button>
+        </div>
+    </div>
+</form>
+
+{# --- Cuentas --- #}
+{% if cuentas_data %}
+    {% for item in cuentas_data %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>{{ item.cuenta.codigo }} - {{ item.cuenta.nombre }}</strong>
+                    <span class="badge bg-secondary ms-2">
+                        {{ item.cuenta.tipo }}
+                    </span>
+                    <span class="badge bg-info ms-1">
+                        {{ item.cuenta.naturaleza|capitalize }}
+                    </span>
+                </div>
+                <div class="small text-muted">
+                    {{ item.movimientos|length }} movimiento(s)
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="tabla-scroll">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 130px;">Fecha</th>
+                        <th style="width: 60px;">Asiento</th>
+                        <th>Descripción</th>
+                        <th class="text-end" style="width: 120px;">Debe</th>
+                        <th class="text-end" style="width: 120px;">Haber</th>
+                        <th class="text-end" style="width: 140px;">Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="total-row">
+                        <td colspan="5" class="text-end">Saldo inicial:</td>
+                        <td class="text-end num">{{ item.saldo_inicial|pesos }}</td>
+                    </tr>
+                    {% for m in item.movimientos %}
+                    <tr>
+                        <td class="small nowrap">
+                            {{ m.asiento.fecha.strftime('%d/%m/%Y') }}
+                        </td>
+                        <td class="small">
+                            <a href="{{ url_for('contabilidad.detalle', id=m.asiento.id) }}"
+                               class="text-decoration-none">
+                                #{{ m.asiento.id }}
+                            </a>
+                        </td>
+                        <td class="small">{{ m.asiento.descripcion }}</td>
+                        <td class="text-end small num">
+                            {{ m.debe|pesos if m.debe > 0 else '—' }}
+                        </td>
+                        <td class="text-end small num">
+                            {{ m.haber|pesos if m.haber > 0 else '—' }}
+                        </td>
+                        <td class="text-end small num fw-bold">
+                            {{ m.saldo|pesos }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="3" class="text-end fw-bold">Totales del período:</td>
+                        <td class="text-end num fw-bold">{{ item.total_debe|pesos }}</td>
+                        <td class="text-end num fw-bold">{{ item.total_haber|pesos }}</td>
+                        <td class="text-end num fw-bold">{{ item.saldo_final|pesos }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty">
+    <i class="fas fa-book-open" aria-hidden="true"></i>
+    No hay movimientos en el período seleccionado.
+</div>
+{% endif %}
+{% endblock %}

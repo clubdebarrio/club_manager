@@ -1,0 +1,19 @@
+{% extends "auth/_shell.html" %}
+
+{% block title %}Demasiadas solicitudes — Club Manager{% endblock %}
+{% block heading %}Esperá un momento{% endblock %}
+{% block sub %}Recibimos demasiadas solicitudes desde tu conexión. Probá de nuevo en unos minutos.{% endblock %}
+{% block aside_title %}Cuidamos la seguridad del sistema.{% endblock %}
+{% block aside_text %}El límite de intentos protege tu cuenta y los datos del club.{% endblock %}
+
+{% block content %}
+<div class="empty" style="text-align: left;">
+    <i class="fas fa-hourglass-half" aria-hidden="true"></i>
+    <strong class="d-block mb-1">Acceso temporalmente limitado</strong>
+    Si el problema continúa, esperá unos minutos antes de volver a intentar.
+</div>
+
+<a href="{{ url_for('auth.login') }}" class="btn btn-primary auth-submit mt-3">
+    <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver al login
+</a>
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}Nota de crédito - Compra #{{ compra.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <a href="{{ url_for('compras.detalle', id=compra.id) }}"
+           class="text-decoration-none small">
+            <i class="fas fa-arrow-left"></i> Volver a la compra
+        </a>
+        <h1 class="mt-1 mb-0">Nota de crédito</h1>
+        <p class="sub">
+            Compra #{{ compra.id }} -
+            {{ compra.proveedor_nombre or 'Sin proveedor' }}
+        </p>
+    </div>
+</div>
+
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i>
+    <strong>Nota de crédito por devolución de mercadería.</strong>
+    Se descuenta el stock de los productos devueltos y el monto queda
+    a favor con el proveedor (baja el saldo pendiente).
+</div>
+
+<form method="POST" id="form-nota-credito">
+    <input type="hidden" name="items_json" id="items_json" value="[]">
+
+    {# --- Tabla de productos --- #}
+    <h2 class="section-title">
+        <i class="fas fa-list" aria-hidden="true"></i> Productos de la compra
+    </h2>
+    <p class="section-sub">Marcá los que vas a devolver</p>
+    <div class="tabla-wrap mb-3">
+        <div class="table-responsive">
+            <table class="table table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"></th>
+                        <th>Producto</th>
+                        <th class="text-end">Precio original</th>
+                        <th class="text-center">Comprado</th>
+                        <th class="text-center">Ya devuelto</th>
+                        <th class="text-center">Devolver ahora</th>
+                        <th class="text-end">Precio unitario</th>
+                        <th class="text-end">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for info in productos_info %}
+                    {% set det = info.detalle %}
+                    {% set puede_devolver = info.maximo_devolvible > 0 %}
+                    <tr data-id-producto="{{ det.producto.id }}"
+                        data-maximo="{{ info.maximo_devolvible }}"
+                        data-precio-original="{{ det.precio_compra }}">
+                        <td>
+                            <input type="checkbox" class="form-check-input
+                                   chk-devolver"
+                                   {{ 'disabled' if not puede_devolver else '' }}>
+                        </td>
+                        <td>
+                            {{ det.producto.nombre }}
+                            {% if not puede_devolver %}
+                                <span class="badge bg-secondary ms-1"
+                                      title="No hay stock o ya se devolvió todo">
+                                    No devolvible
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">{{ det.precio_compra|pesos }}</td>
+                        <td class="text-center">{{ det.cantidad }}</td>
+                        <td class="text-center">
+                            {{ det.cantidad - info.maximo_devolvible }}
+                        </td>
+                        <td class="text-center" style="width: 110px;">
+                            <input type="number" min="0"
+                                   max="{{ info.maximo_devolvible }}"
+                                   class="form-control form-control-sm
+                                          text-center input-cantidad"
+                                   value="0"
+                                   {{ 'disabled' if not puede_devolver else '' }}>
+                        </td>
+                        <td class="text-end" style="width: 140px;">
+                            <input type="number" step="0.01" min="0.01"
+                                   class="form-control form-control-sm
+                                          text-end input-precio"
+                                   value="{{ det.precio_compra }}"
+                                   {{ 'disabled' if not puede_devolver else '' }}>
+                        </td>
+                        <td class="text-end input-subtotal">
+                            $0,00
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-secondary">
+                        <td colspan="7" class="text-end">
+                            <strong>Total a acreditar:</strong>
+                        </td>
+                        <td class="text-end">
+                            <strong id="total-nota">$0,00</strong>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    {# --- Motivo --- #}
+    <div class="form-card mb-3">
+        <h2 class="section-title">
+            <i class="fas fa-comment-dots" aria-hidden="true"></i> Motivo de la devolución
+        </h2>
+        <label class="form-label">
+            Motivo de la devolución <span class="text-danger">*</span>
+        </label>
+        <textarea name="motivo" class="form-control" rows="2"
+                  required maxlength="300"
+                  placeholder="Ej: El producto vino fallado y el proveedor no tiene stock para reponerlo."></textarea>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary"
+                id="btn-guardar" disabled>
+            <i class="fas fa-save"></i> Crear nota de crédito
+        </button>
+        <a href="{{ url_for('compras.detalle', id=compra.id) }}"
+           class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var filas = document.querySelectorAll('tr[data-id-producto]');
+    var itemsJson = document.getElementById('items_json');
+    var totalSpan = document.getElementById('total-nota');
+    var btnGuardar = document.getElementById('btn-guardar');
+
+    function fmt(valor) {
+        return '$' + valor.toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        });
+    }
+
+    function recalcular() {
+        var total = 0;
+        var items = [];
+
+        filas.forEach(function (fila) {
+            var chk = fila.querySelector('.chk-devolver');
+            var inputCant = fila.querySelector('.input-cantidad');
+            var inputPrecio = fila.querySelector('.input-precio');
+            var subtotalCell = fila.querySelector('.input-subtotal');
+
+            if (!chk.checked) {
+                inputCant.disabled = true;
+                inputPrecio.disabled = true;
+                subtotalCell.textContent = fmt(0);
+                return;
+            }
+
+            inputCant.disabled = false;
+            inputPrecio.disabled = false;
+
+            var cantidad = parseInt(inputCant.value) || 0;
+            var precio = parseFloat(inputPrecio.value) || 0;
+            var subtotal = cantidad * precio;
+            subtotalCell.textContent = fmt(subtotal);
+            total += subtotal;
+
+            if (cantidad > 0 && precio > 0) {
+                items.push({
+                    id_producto: parseInt(fila.dataset.idProducto),
+                    cantidad: cantidad,
+                    precio_unitario: precio,
+                });
+            }
+        });
+
+        totalSpan.textContent = fmt(total);
+        itemsJson.value = JSON.stringify(items);
+        btnGuardar.disabled = (items.length === 0);
+    }
+
+    filas.forEach(function (fila) {
+        var chk = fila.querySelector('.chk-devolver');
+        var inputCant = fila.querySelector('.input-cantidad');
+        var inputPrecio = fila.querySelector('.input-precio');
+        var maximo = parseInt(fila.dataset.maximo) || 0;
+
+        chk.addEventListener('change', function () {
+            if (chk.checked && inputCant.value === '0') {
+                inputCant.value = maximo;
+            }
+            if (!chk.checked) {
+                inputCant.value = 0;
+            }
+            recalcular();
+        });
+
+        inputCant.addEventListener('input', function () {
+            var v = parseInt(inputCant.value) || 0;
+            if (v < 0) inputCant.value = 0;
+            if (v > maximo) inputCant.value = maximo;
+            recalcular();
+        });
+
+        inputPrecio.addEventListener('input', recalcular);
+    });
+
+    recalcular();
+});
+</script>
+{% endblock %}

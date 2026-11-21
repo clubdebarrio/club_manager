@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+
+{% block title %}{{ club.nombre }} — Panel del sistema{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <a href="{{ url_for('sistema.listar') }}" class="small text-decoration-none">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver al panel
+        </a>
+        <h1>{{ club.nombre }}</h1>
+        <p class="sub">Datos, suscripción, usuarios y gestión del club.</p>
+    </div>
+    <div class="actions">
+        {% if club.trial_vencido %}
+            <span class="badge bg-danger">TRIAL VENCIDO</span>
+        {% elif club.estado_pago == 'suspendido' %}
+            <span class="badge bg-danger">SUSPENDIDO</span>
+        {% elif club.plan == 'trial' %}
+            <span class="badge bg-warning text-dark">
+                TRIAL — {{ club.dias_restantes_trial }} días restantes
+            </span>
+        {% elif club.estado_pago == 'al_dia' %}
+            <span class="badge bg-success">AL DÍA</span>
+        {% endif %}
+    </div>
+</div>
+
+{# --- Métricas del club --- #}
+<section class="stat-strip" aria-label="Resumen del club">
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-users" aria-hidden="true"></i> Socios activos</p>
+        <p class="stat__value">{{ socios_activos }}</p>
+    </div>
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-id-badge" aria-hidden="true"></i> Plan</p>
+        <p class="stat__value">{{ club.plan|capitalize }}</p>
+    </div>
+    <div class="stat">
+        <p class="stat__label"><i class="fas fa-circle-check" aria-hidden="true"></i> Estado</p>
+        <p class="stat__value">{{ club.estado_pago }}</p>
+    </div>
+</section>
+
+{# --- Datos generales --- #}
+<div class="row g-3 mb-4 align-items-start">
+    <div class="col-lg-8">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-building" aria-hidden="true"></i> Datos del club</h2>
+            </div>
+            <div class="card-body">
+                <div class="detail-grid">
+                    <dl class="detail-list">
+                        <dt>CUIT</dt>
+                        <dd>{{ club.cuit }}</dd>
+                        <dt>Email</dt>
+                        <dd>{{ club.email or '—' }}</dd>
+                        <dt>Teléfono</dt>
+                        <dd>{{ club.telefono or '—' }}</dd>
+                    </dl>
+                    <dl class="detail-list">
+                        <dt>Fecha de alta</dt>
+                        <dd>{{ club.fecha_alta.strftime('%d/%m/%Y') if club.fecha_alta else '—' }}</dd>
+                        <dt>Socios activos</dt>
+                        <dd>{{ socios_activos }}</dd>
+                        <dt>Último login</dt>
+                        <dd>
+                            {% if ultimo_login %}
+                                {{ ultimo_login.strftime('%d/%m/%Y %H:%M') }}
+                            {% else %}
+                                <span class="text-muted">Nunca</span>
+                            {% endif %}
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-credit-card" aria-hidden="true"></i> Suscripción</h2>
+            </div>
+            <div class="card-body">
+                <dl class="detail-list">
+                    <dt>Tarifa</dt>
+                    <dd>
+                        {% if club.tarifa %}
+                            {{ club.tarifa.nombre }}
+                            (${{ '{:,.0f}'.format(club.tarifa.precio_mensual).replace(',', '.') }}/mes)
+                        {% else %}
+                            <span class="text-muted">Sin asignar</span>
+                        {% endif %}
+                    </dd>
+                    {% if club.plan == 'trial' %}
+                    <dt>Vence</dt>
+                    <dd>{{ club.fecha_vencimiento_prueba.strftime('%d/%m/%Y') if club.fecha_vencimiento_prueba else '—' }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- Acciones --- #}
+<div class="row g-3">
+    {# --- Extender trial --- #}
+    <div class="col-lg-6">
+        <div class="form-section h-100">
+            <h2 class="section-title"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Extender trial</h2>
+            <p class="section-sub">Suma días al vencimiento actual (o desde hoy si ya venció).</p>
+            <form method="POST"
+                  action="{{ url_for('sistema.extender_trial', id=club.id) }}">
+                <div class="input-group">
+                    <input type="number" name="dias" class="form-control"
+                           placeholder="Días" min="1" max="365"
+                           value="30">
+                    <span class="input-group-text">días</span>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-plus" aria-hidden="true"></i> Extender
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# --- Marcar como pago --- #}
+    <div class="col-lg-6">
+        <div class="form-section h-100">
+            <h2 class="section-title"><i class="fas fa-sliders" aria-hidden="true"></i> Marcar plan / pago</h2>
+            <form method="POST"
+                  action="{{ url_for('sistema.marcar_pago', id=club.id) }}">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small">Plan</label>
+                        <select name="plan" class="form-select form-select-sm">
+                            <option value="trial"
+                                    {{ 'selected' if club.plan == 'trial' else '' }}>
+                                Trial
+                            </option>
+                            <option value="basico"
+                                    {{ 'selected' if club.plan == 'basico' else '' }}>
+                                Básico
+                            </option>
+                            <option value="pro"
+                                    {{ 'selected' if club.plan == 'pro' else '' }}>
+                                Pro
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Estado pago</label>
+                        <select name="estado_pago" class="form-select form-select-sm">
+                            <option value="trial"
+                                    {{ 'selected' if club.estado_pago == 'trial' else '' }}>
+                                Trial
+                            </option>
+                            <option value="al_dia"
+                                    {{ 'selected' if club.estado_pago == 'al_dia' else '' }}>
+                                Al día
+                            </option>
+                            <option value="vencido"
+                                    {{ 'selected' if club.estado_pago == 'vencido' else '' }}>
+                                Vencido
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Tarifa</label>
+                        <select name="id_tarifa" class="form-select form-select-sm">
+                            <option value="">— Sin tarifa —</option>
+                            {% for t in tarifas %}
+                            <option value="{{ t.id }}"
+                                    {{ 'selected' if club.id_tarifa == t.id else '' }}>
+                                {{ t.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="fas fa-save" aria-hidden="true"></i> Guardar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {# --- Asignar tarifa (sugerida) --- #}
+    <div class="col-lg-6">
+        <div class="form-section h-100">
+            <h2 class="section-title"><i class="fas fa-tags" aria-hidden="true"></i> Tarifa sugerida</h2>
+            {% if tarifa_sugerida %}
+            <p class="mb-1">
+                Con <strong>{{ socios_activos }} socios activos</strong>,
+                la tarifa que corresponde es:
+            </p>
+            <p class="fs-5 mb-2">
+                <strong>{{ tarifa_sugerida.nombre }}</strong>
+                <span class="text-muted">
+                    (${{ '{:,.0f}'.format(tarifa_sugerida.precio_mensual).replace(',', '.') }}/mes)
+                </span>
+            </p>
+            {% if club.id_tarifa != tarifa_sugerida.id %}
+            <form method="POST"
+                  action="{{ url_for('sistema.asignar_tarifa', id=club.id) }}">
+                <input type="hidden" name="id_tarifa"
+                       value="{{ tarifa_sugerida.id }}">
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="fas fa-arrow-up" aria-hidden="true"></i> Aplicar tarifa sugerida
+                    </button>
+                </div>
+            </form>
+            {% else %}
+            <p class="text-success mb-0 small">
+                <i class="fas fa-check" aria-hidden="true"></i> Ya tiene la tarifa correcta.
+            </p>
+            {% endif %}
+            {% else %}
+            <p class="text-muted mb-0">
+                No hay tarifa configurada para {{ socios_activos }} socios.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    {# --- Suspender / Reactivar --- #}
+    <div class="col-lg-6">
+        <div class="form-section h-100">
+            <h2 class="section-title">
+                <i class="fas fa-power-off" aria-hidden="true"></i>
+                {{ 'Suspender' if club.estado_pago != 'suspendido' else 'Reactivar' }}
+            </h2>
+            {% if club.estado_pago == 'suspendido' %}
+            <p class="section-sub">
+                El club está suspendido. Los usuarios no pueden escribir.
+            </p>
+            <form method="POST"
+                  action="{{ url_for('sistema.reactivar', id=club.id) }}"
+                  onsubmit="return confirm('¿Reactivar el club?')">
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-play" aria-hidden="true"></i> Reactivar club
+                    </button>
+                </div>
+            </form>
+            {% else %}
+            <p class="section-sub">
+                Suspender un club bloquea las escrituras. Los datos se conservan.
+            </p>
+            <form method="POST"
+                  action="{{ url_for('sistema.suspender', id=club.id) }}"
+                  onsubmit="return confirm('¿Suspender el club?')">
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-pause" aria-hidden="true"></i> Suspender club
+                    </button>
+                </div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{# --- Usuarios --- #}
+<div class="card mt-3">
+    <div class="card-header">
+        <h2 class="section-title"><i class="fas fa-users" aria-hidden="true"></i> Usuarios del club</h2>
+    </div>
+    <div class="card-body">
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Nombre</th>
+                            <th>Rol</th>
+                            <th>Super admin</th>
+                            <th>Verificado</th>
+                            <th>Activo</th>
+                            <th class="text-end">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in usuarios %}
+                        <tr>
+                            <td>{{ u.username }}</td>
+                            <td>{{ u.nombre }}</td>
+                            <td>{{ u.rol_rel.nombre if u.rol_rel else '—' }}</td>
+                            <td>
+                                {% if u.es_super_admin %}
+                                    <span class="badge bg-primary">Sí</span>
+                                {% else %}
+                                    <span class="text-muted">No</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.email_verificado %}
+                                    <span class="badge bg-success">Sí</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">No</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if u.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {# Botón de impersonation (se activa en Fase 3) #}
+                                {% if u.es_super_admin_sistema %}
+                                    <span class="text-muted small">Super admin sistema</span>
+                                {% else %}
+                                    <form method="POST"
+                                        action="{{ url_for('sistema.iniciar_impersonation',
+                                                            id_club=club.id, id_usuario=u.id) }}"
+                                        style="display:inline;"
+                                        onsubmit="return confirm('¿Entrar como {{ u.nombre }} ({{ u.username }})?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-user-secret" aria-hidden="true"></i> Entrar como
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

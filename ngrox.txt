@@ -1,0 +1,2 @@
+pc estudio
+.\ngrok.exe http --domain=squabblingly-marcescent-leonie.ngrok-free.dev 5000

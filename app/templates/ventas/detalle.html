@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Venta #{{ venta.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>
+            Venta #{{ venta.id }}
+            {% if venta.estado == 'anulada' %}
+                <span class="badge bg-danger ms-2">ANULADA</span>
+            {% endif %}
+        </h1>
+        <p class="sub">Comprobante y detalle de la operación.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('ventas.ticket', id=venta.id) }}"
+           class="btn btn-secondary" target="_blank">
+            <i class="fas fa-print"></i> Ticket
+        </a>
+        {% if venta.estado == 'completada'
+              and usuario_actual
+              and usuario_actual.puede_editar('ventas') %}
+            <button type="button" class="btn btn-outline-danger"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalAnularVenta">
+                <i class="fas fa-ban"></i> Anular venta
+            </button>
+        {% endif %}
+        <a href="{{ url_for('ventas.listar') }}" class="btn btn-secondary">
+            Volver
+        </a>
+    </div>
+</div>
+
+<div class="card {{ 'border-danger' if venta.estado == 'anulada' else '' }}">
+    <div class="card-body">
+        {% if venta.estado == 'anulada' %}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>Esta venta está anulada.</strong>
+            {% if venta.fecha_anulacion %}
+                <br>
+                <small>
+                    Anulada el
+                    {{ venta.fecha_anulacion|localdatetime }}
+                    {% if venta.motivo_anulacion %}
+                        · Motivo: <em>{{ venta.motivo_anulacion }}</em>
+                    {% endif %}
+                </small>
+            {% endif %}
+            <br>
+            <small>
+                El stock fue devuelto, el movimiento de caja revertido,
+                y se generaron los contra-asientos contables.
+            </small>
+        </div>
+        {% endif %}
+
+        <div class="detail-grid">
+            <dl class="detail-list">
+                <dt>Fecha</dt>
+                <dd>{{ venta.fecha|localdatetime }}</dd>
+                <dt>Socio</dt>
+                <dd>{{ venta.socio.apellido ~ ', ' ~ venta.socio.nombre
+                       if venta.socio else 'No Socio' }}</dd>
+                <dt>Estado</dt>
+                <dd>
+                    <span class="badge bg-{{
+                        'success' if venta.estado == 'completada'
+                        else 'danger'
+                    }}">
+                        {{ venta.estado|capitalize }}
+                    </span>
+                </dd>
+            </dl>
+            <dl class="detail-list">
+                <dt>Método de pago</dt>
+                <dd>{{ venta.metodo_pago|capitalize }}</dd>
+                <dt>Cuenta</dt>
+                <dd>{{ venta.cuenta.nombre }}</dd>
+                <dt>Comprobante</dt>
+                <dd>{{ venta.comprobante or '-' }}</dd>
+            </dl>
+        </div>
+
+        <h2 class="section-title mt-3">
+            <i class="fas fa-list" aria-hidden="true"></i> Productos
+        </h2>
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th class="text-center">Cantidad</th>
+                            <th class="text-end">Precio Unitario</th>
+                            <th class="text-end">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for det in venta.detalles %}
+                        <tr>
+                            <td>{{ det.producto.nombre }}</td>
+                            <td class="text-center num">{{ det.cantidad }}</td>
+                            <td class="text-end num">
+                                {{ det.precio_unitario|pesos }}
+                            </td>
+                            <td class="text-end num">{{ det.subtotal|pesos }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="total-line">
+            <span>Total</span>
+            <span class="amount">{{ venta.total|pesos }}</span>
+        </div>
+    </div>
+</div>
+
+{# --- Modal de anulación --- #}
+{% if venta.estado == 'completada' %}
+<div class="modal fade" id="modalAnularVenta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST"
+                  action="{{ url_for('ventas.anular', id=venta.id) }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">
+                        <i class="fas fa-ban"></i> Anular venta #{{ venta.id }}
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white"
+                            data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <strong>Vas a anular esta venta por
+                        {{ venta.total|pesos }}.</strong>
+                        <hr class="my-2">
+                        Se van a revertir automáticamente:
+                        <ul class="mb-0 mt-1">
+                            <li>El <strong>stock</strong> de los productos
+                                vendidos.</li>
+                            <li>El <strong>movimiento de caja</strong>
+                                (con su contra-asiento).</li>
+                            <li>El <strong>asiento del CMV</strong>
+                                (costo de mercadería vendida).</li>
+                            {% if venta.metodo_pago == 'cheque' %}
+                            <li>El <strong>cheque</strong> volverá al estado
+                                <em>rechazado</em> (devuelto al cliente).</li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                    <label class="form-label">Motivo (opcional)</label>
+                    <input type="text" name="motivo" class="form-control"
+                           maxlength="200"
+                           placeholder="Ej: Cargué mal los productos, el cliente devolvió todo...">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary"
+                            data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-ban"></i> Confirmar anulación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

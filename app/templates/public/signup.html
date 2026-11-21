@@ -1,0 +1,83 @@
+{% extends "auth/_shell.html" %}
+
+{% block title %}Crear mi club — Club Manager{% endblock %}
+{% block card_class %}auth-card--wide{% endblock %}
+{% block heading %}Crear mi club{% endblock %}
+{% block sub %}Empezá a usar Club Manager gratis. Sin tarjeta.{% endblock %}
+{% block aside_title %}Menos administración, más club.{% endblock %}
+{% block aside_text %}Configurá tu club en pocos minutos y empezá a ordenar socios, cuotas y tesorería.{% endblock %}
+
+{% block content %}
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+
+    <h6 class="auth-section-title"><i class="fas fa-building" aria-hidden="true"></i> Datos del club</h6>
+
+    <div class="row">
+        <div class="col-md-7 mb-3">
+            {{ form.nombre_club.label(class="form-label") }}
+            {{ form.nombre_club(class="form-control" + (" is-invalid" if form.nombre_club.errors else ""), placeholder="Club Atlético Barrio") }}
+            {% for e in form.nombre_club.errors %}
+                <div class="invalid-feedback">{{ e }}</div>
+            {% endfor %}
+        </div>
+        <div class="col-md-5 mb-3">
+            {{ form.cuit.label(class="form-label") }}
+            {{ form.cuit(class="form-control" + (" is-invalid" if form.cuit.errors else ""), placeholder="30-12345678-9") }}
+            {% for e in form.cuit.errors %}
+                <div class="invalid-feedback">{{ e }}</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <h6 class="auth-section-title"><i class="fas fa-user-shield" aria-hidden="true"></i> Datos del administrador</h6>
+
+    <div class="mb-3">
+        {{ form.nombre_admin.label(class="form-label") }}
+        {{ form.nombre_admin(class="form-control" + (" is-invalid" if form.nombre_admin.errors else ""), placeholder="Juan Pérez") }}
+        {% for e in form.nombre_admin.errors %}
+            <div class="invalid-feedback">{{ e }}</div>
+        {% endfor %}
+    </div>
+
+    <div class="mb-3">
+        {{ form.email.label(class="form-label") }}
+        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="admin@club.com") }}
+        {% for e in form.email.errors %}
+            <div class="invalid-feedback">{{ e }}</div>
+        {% endfor %}
+        <small class="form-text">Con este email vas a iniciar sesión.</small>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6 mb-3">
+            {{ form.password.label(class="form-label") }}
+            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Mínimo 6 caracteres") }}
+            {% for e in form.password.errors %}
+                <div class="invalid-feedback">{{ e }}</div>
+            {% endfor %}
+        </div>
+        <div class="col-md-6 mb-3">
+            {{ form.confirmar_password.label(class="form-label") }}
+            {{ form.confirmar_password(class="form-control" + (" is-invalid" if form.confirmar_password.errors else ""), placeholder="Repetí la contraseña") }}
+            {% for e in form.confirmar_password.errors %}
+                <div class="invalid-feedback">{{ e }}</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-lg auth-submit">
+        <i class="fas fa-rocket" aria-hidden="true"></i> Crear mi club
+    </button>
+</form>
+
+<div class="auth-alt">
+    ¿Ya tenés cuenta? <a href="{{ url_for('auth.login') }}">Iniciar sesión</a>
+</div>
+{% endblock %}
+
+{% block foot %}
+<a class="auth-back" href="{{ url_for('main.index') }}">
+    <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver al inicio
+</a>
+{% endblock %}

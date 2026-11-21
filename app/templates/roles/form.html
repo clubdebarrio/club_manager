@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if rol else 'Nuevo' }} rol{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if rol else 'Nuevo' }} rol</h1>
+        <p class="sub">Nombre, estado y permisos por módulo.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('roles.listar') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<form method="POST">
+    {{ form.hidden_tag() }}
+
+    <div class="form-section">
+        <h2 class="section-title"><i class="fas fa-user-tag" aria-hidden="true"></i> Datos del rol</h2>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-8">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for e in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ e }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                <div class="form-check">
+                    {{ form.activo(class="form-check-input") }}
+                    {{ form.activo.label(class="form-check-label") }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h2 class="section-title"><i class="fas fa-key" aria-hidden="true"></i> Permisos</h2>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Módulo</th>
+                        <th class="text-center">Ver</th>
+                        <th class="text-center">Editar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for clave, etiqueta in modulos %}
+                    <tr>
+                        <td>{{ etiqueta }}</td>
+                        <td class="text-center">
+                            <input type="checkbox"
+                                   name="perm_{{ clave }}_ver"
+                                   {% if (clave ~ '.ver') in permisos_actuales %}checked{% endif %}>
+                        </td>
+                        <td class="text-center">
+                            <input type="checkbox"
+                                   name="perm_{{ clave }}_editar"
+                                   {% if (clave ~ '.editar') in permisos_actuales %}checked{% endif %}>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="alert alert-secondary small">
+        <strong>Nota:</strong> "Editar" implica crear, modificar y eliminar.
+        Si un usuario tiene "Editar" pero no "Ver", va a poder hacer acciones
+        pero no va a poder acceder al listado. Recomendamos tildar ambos
+        cuando se otorga edición.
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('roles.listar') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

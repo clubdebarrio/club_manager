@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Listado de Socios{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Socios</h1>
+        <p class="sub">Padrón de socios con búsqueda, filtros y exportación.</p>
+    </div>
+    <div class="actions">
+        <div class="btn-group">
+            <button type="button" class="btn btn-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                Exportar
+            </button>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="{{ url_for('socios.reporte', formato='pdf') }}">PDF</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('socios.reporte', formato='excel') }}">Excel</a></li>
+            </ul>
+        </div>
+        {% if usuario_actual and usuario_actual.puede_editar('socios') %}
+        <a href="{{ url_for('socios.crear') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-user-plus" aria-hidden="true"></i> Nuevo Socio
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Filtro de activos/inactivos -->
+<div class="btn-group mb-3" role="group">
+    <a href="{{ url_for('socios.listar', filtro='activos', q=query) }}" class="btn btn-{{ 'primary' if filtro == 'activos' else 'outline-secondary' }}">
+        <i class="fas fa-user-check"></i> Activos
+    </a>
+    <a href="{{ url_for('socios.listar', filtro='inactivos', q=query) }}" class="btn btn-{{ 'primary' if filtro == 'inactivos' else 'outline-secondary' }}">
+        <i class="fas fa-user-slash"></i> Inactivos
+    </a>
+</div>
+
+<!-- Buscador dinámico con auto-submit -->
+<div class="filter-bar">
+    <form method="GET" id="form-busqueda" class="row g-2 align-items-end">
+        <input type="hidden" name="filtro" value="{{ filtro }}">
+        <div class="col-12">
+            <input type="text" id="buscador" name="q" class="form-control"
+                   placeholder="Buscar por apellido, nombre o número de socio..."
+                   value="{{ query or '' }}" autofocus>
+        </div>
+    </form>
+</div>
+
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th class="text-end">Nro. Socio</th>
+                    <th>Apellido</th>
+                    <th>Nombre</th>
+                    <th>Documento</th>
+                    <th>Tipo</th>
+                    <th>Categoría</th>
+                    <th>Teléfono</th>
+                    <th>Estado</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for socio in socios %}
+                <tr class="{{ 'row-inactive' if socio.fecha_baja else '' }}">
+                    <td class="text-end num">{{ socio.numero_socio }}</td>
+                    <td><a href="{{ url_for('socios.detalle', id=socio.id) }}">{{ socio.apellido }}</a></td>
+                    <td>{{ socio.nombre }}</td>
+                    <td>{{ socio.tipo_documento }}: {{ socio.nro_documento }}</td>
+                    <td>{{ socio.tipo_socio_rel.nombre if socio.tipo_socio_rel else '-' }}</td>
+                    <td>{{ socio.categoria_socio_rel.nombre if socio.categoria_socio_rel else '-' }}</td>
+                    <td>{{ socio.telefono or '-' }}</td>
+                    <td>
+                        {% if socio.fecha_baja %}
+                            <span class="badge bg-danger">Inactivo</span>
+                        {% else %}
+                            <span class="badge bg-success">Activo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <div class="table-actions">
+                            {% if not socio.fecha_baja %}
+                                {% if usuario_actual and usuario_actual.puede_editar('socios') %}
+                                    <a href="{{ url_for('socios.editar', id=socio.id) }}" class="btn btn-sm btn-secondary btn-icon" title="Editar"><i class="fas fa-edit"></i></a>
+                                {% endif %}
+                            {% endif %}
+                            {% if socio.fecha_baja %}
+                                <form action="{{ url_for('socios.reactivar', id=socio.id) }}" method="POST">
+                                    <button type="submit" class="btn btn-sm btn-outline-success btn-icon" title="Reactivar"><i class="fas fa-undo"></i></button>
+                                </form>
+                            {% else %}
+                                {% if usuario_actual and usuario_actual.puede_editar('socios') %}
+                                <form action="{{ url_for('socios.baja', id=socio.id) }}" method="POST" onsubmit="return confirm('¿Estás seguro de dar de baja a este socio?');">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger btn-icon" title="Dar de baja"><i class="fas fa-trash"></i></button>
+                                </form>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9">
+                        <div class="empty">
+                            <i class="fas fa-users" aria-hidden="true"></i>
+                            No se encontraron socios.
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Paginación reutilizable -->
+{{ render_pagination(pagination, 'socios.listar', {'filtro': filtro, 'q': query or ''}) }}
+
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador');
+    if (buscador && buscador.value) {
+        buscador.focus();
+        buscador.setSelectionRange(buscador.value.length, buscador.value.length);
+    }
+    const form = document.getElementById('form-busqueda');
+    if (!buscador || !form) return;
+
+    let timeout = null;
+
+    buscador.addEventListener('input', function() {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => {
+            form.submit();
+        }, 400); // Espera 400ms después de dejar de escribir
+    });
+
+    // Al presionar Enter, enviar inmediatamente
+    buscador.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            clearTimeout(timeout);
+            form.submit();
+        }
+    });
+});
+</script>
+{% endblock %}

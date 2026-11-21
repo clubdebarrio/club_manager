@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if usuario else 'Nuevo' }} usuario{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if usuario else 'Nuevo' }} usuario</h1>
+        <p class="sub">Datos de la cuenta, credenciales y rol de acceso.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('usuarios.listar') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<form method="POST" class="card">
+    <div class="card-body">
+        {{ form.hidden_tag() }}
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for e in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ e }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else "")) }}
+                {% for e in form.username.errors %}
+                    <div class="invalid-feedback">{{ e }}</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row g-3 mt-1">
+            <div class="col-md-6">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else "")) }}
+                <small class="form-text text-muted">
+                    {% if usuario %}
+                        Dejar en blanco para no cambiarla.
+                    {% else %}
+                        Mínimo 6 caracteres.
+                    {% endif %}
+                </small>
+                {% for e in form.password.errors %}
+                    <div class="invalid-feedback">{{ e }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.id_rol.label(class="form-label") }}
+                {{ form.id_rol(class="form-select") }}
+                <small class="form-text text-muted">
+                    El rol define qué módulos puede usar este usuario.
+                </small>
+            </div>
+        </div>
+
+        <div class="form-check mt-3">
+            {{ form.activo(class="form-check-input") }}
+            {{ form.activo.label(class="form-check-label") }}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('usuarios.listar') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </div>
+</form>
+{% endblock %}

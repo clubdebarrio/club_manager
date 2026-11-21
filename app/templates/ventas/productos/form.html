@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if producto else 'Nuevo' }} Producto{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if producto else 'Nuevo' }} Producto</h1>
+        <p class="sub">Datos del producto, precios, control de stock y fotografía.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('ventas.listar_productos') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- IMPORTANTE: enctype="multipart/form-data" para permitir subir archivos -->
+<form method="POST" enctype="multipart/form-data">
+    {{ form.hidden_tag() }}
+    
+    <!-- ========================================== -->
+    <!-- SECCIÓN DE FOTO                            -->
+    <!-- ========================================== -->
+    <div class="form-card mb-3">
+        <h2 class="section-title">
+            <i class="fas fa-image" aria-hidden="true"></i> Foto del producto
+        </h2>
+        <div class="row align-items-center">
+            <div class="col-md-3 text-center mb-3 mb-md-0">
+                {% if producto and producto.tiene_foto %}
+                    <img src="{{ url_for('ventas.servir_foto_producto', id=producto.id) }}?v={{ producto.foto_actualizada_at.timestamp() }}" 
+                         alt="Foto de {{ producto.nombre }}" 
+                         class="img-fluid rounded shadow-sm" 
+                         style="max-height: 150px; object-fit: cover;">
+                {% else %}
+                    <div class="bg-light rounded d-flex align-items-center justify-content-center shadow-sm mx-auto" 
+                         style="width: 120px; height: 120px;">
+                        <i class="fas fa-box fa-3x text-muted"></i>
+                    </div>
+                {% endif %}
+            </div>
+            <div class="col-md-9">
+                <label class="form-label">Subir nueva foto (JPG/PNG, máx 5MB)</label>
+                <input type="file" name="foto" class="form-control mb-2" accept="image/*">
+                
+                {% if producto and producto.tiene_foto %}
+                <button type="button" class="btn btn-sm btn-outline-danger mt-2" 
+                        onclick="if(confirm('¿Eliminar la foto actual?')) document.getElementById('form-eliminar-foto').submit();">
+                    <i class="fas fa-trash"></i> Eliminar foto actual
+                </button>
+                {% endif %}
+                <small class="form-text text-muted d-block mt-2">
+                    La imagen se recortará automáticamente a un cuadrado y se optimizará para web.
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- DATOS BÁSICOS                              -->
+    <!-- ========================================== -->
+    <div class="form-card">
+        <h2 class="section-title">
+            <i class="fas fa-box" aria-hidden="true"></i> Datos del producto
+        </h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.nombre.label(class="form-label") }}
+                {{ form.nombre(class="form-control" + (" is-invalid" if form.nombre.errors else "")) }}
+                {% for error in form.nombre.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6">
+                {{ form.categoria.label(class="form-label") }}
+                {{ form.categoria(class="form-select" + (" is-invalid" if form.categoria.errors else "")) }}
+                {% for error in form.categoria.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-12">
+                {{ form.descripcion.label(class="form-label") }}
+                {{ form.descripcion(class="form-control" + (" is-invalid" if form.descripcion.errors else ""), rows=3) }}
+                {% for error in form.descripcion.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PRECIOS Y STOCK                            -->
+    <!-- ========================================== -->
+    <div class="form-card">
+        <h2 class="section-title">
+            <i class="fas fa-tags" aria-hidden="true"></i> Precios y stock
+        </h2>
+        <div class="row g-3">
+            <div class="col-md-4">
+                {{ form.precio_venta.label(class="form-label") }}
+                {{ form.precio_venta(class="form-control money-input" + (" is-invalid" if form.precio_venta.errors else ""), placeholder="0.00", type="text") }}
+                {% for error in form.precio_venta.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.precio_costo.label(class="form-label") }}
+                {{ form.precio_costo(class="form-control money-input" + (" is-invalid" if form.precio_costo.errors else ""), placeholder="0.00", type="text") }}
+                {% for error in form.precio_costo.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.stock_actual.label(class="form-label") }}
+                {{ form.stock_actual(class="form-control" + (" is-invalid" if form.stock_actual.errors else "")) }}
+                {% for error in form.stock_actual.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.stock_minimo.label(class="form-label") }}
+                {{ form.stock_minimo(class="form-control" + (" is-invalid" if form.stock_minimo.errors else "")) }}
+                {% for error in form.stock_minimo.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4 d-flex align-items-center">
+                <div class="form-check mt-4">
+                    {{ form.activo(class="form-check-input") }}
+                    {{ form.activo.label(class="form-check-label") }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="{{ url_for('ventas.listar_productos') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+
+<!-- Formulario oculto para eliminar la foto (debe estar fuera del form principal) -->
+{% if producto and producto.tiene_foto %}
+<form id="form-eliminar-foto" method="POST" action="{{ url_for('ventas.borrar_foto_producto', id=producto.id) }}" class="d-none"></form>
+{% endif %}
+{% endblock %}

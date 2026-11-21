@@ -1,0 +1,54 @@
+name: Backup Base de Datos
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_DB_HOST: ${{ secrets.SUPABASE_DB_HOST }}
+      SUPABASE_DB_USER: ${{ secrets.SUPABASE_DB_USER }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_DB_NAME: ${{ secrets.SUPABASE_DB_NAME }}
+      BACKUP_AGE_PUBLIC_KEY: ${{ secrets.BACKUP_AGE_PUBLIC_KEY }}
+      BACKUP_DIR: backups_supabase
+      AGE_BIN: /usr/local/bin/age
+      B2_KEY_ID: ${{ secrets.B2_KEY_ID }}
+      B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
+      B2_BUCKET_NAME: ${{ secrets.B2_BUCKET_NAME }}
+      B2_ENDPOINT: ${{ secrets.B2_ENDPOINT }}
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar PostgreSQL Client (v17)
+        run: |
+          sudo install -d -m 0755 /etc/apt/keyrings
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/keyrings/postgresql.gpg
+          echo "deb [signed-by=/etc/apt/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias de Python
+        run: |
+          pip install boto3 python-dotenv
+
+      - name: Instalar age
+        run: |
+          wget https://github.com/FiloSottile/age/releases/download/v1.1.1/age-v1.1.1-linux-amd64.tar.gz
+          tar -xzf age-v1.1.1-linux-amd64.tar.gz
+          sudo mv age/age /usr/local/bin/
+          sudo mv age/age-keygen /usr/local/bin/
+
+      - name: Ejecutar script de backup
+        run: python backup.py

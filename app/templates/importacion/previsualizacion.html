@@ -1,0 +1,114 @@
+<!-- templates/importacion/previsualizacion.html -->
+{% extends "base.html" %}
+
+{% block title %}Previsualización de Importación{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Previsualización de Importación</h1>
+        <p class="sub">Revisá los registros válidos e inválidos antes de confirmar la importación.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title">
+                    <i class="fas fa-circle-check" aria-hidden="true"></i>
+                    Registros Válidos
+                    <span class="badge bg-success">{{ validos|length }}</span>
+                </h2>
+            </div>
+            <div class="card-body">
+                <p>Estos registros se importarán correctamente.</p>
+                <ul>
+                    {% for v in validos[:10] %}
+                    <li>{{ v.apellido }}, {{ v.nombre }} ({{ v.nro_documento }})</li>
+                    {% endfor %}
+                    {% if validos|length > 10 %}
+                    <li>... y {{ validos|length - 10 }} más.</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title">
+                    <i class="fas fa-circle-xmark" aria-hidden="true"></i>
+                    Registros Inválidos
+                    <span class="badge bg-danger">{{ invalidos|length }}</span>
+                </h2>
+            </div>
+            <div class="card-body">
+                <p>Estos registros tienen errores y no se importarán.</p>
+                {% if invalidos %}
+                <a href="{{ url_for('importacion.descargar_reporte') }}" class="btn btn-warning btn-sm">
+                    <i class="fas fa-download" aria-hidden="true"></i> Descargar Reporte de Errores
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if invalidos %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h2 class="section-title">Detalle de Errores</h2>
+    </div>
+    <div class="card-body">
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Apellido</th>
+                            <th>Nombre</th>
+                            <th>Documento</th>
+                            <th>Errores</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in invalidos %}
+                        <tr>
+                            <td class="num">{{ inv.fila }}</td>
+                            <td>{{ inv.datos.apellido }}</td>
+                            <td>{{ inv.datos.nombre }}</td>
+                            <td>{{ inv.datos.nro_documento }}</td>
+                            <td>
+                                <ul class="list-unstyled mb-0">
+                                    {% for error in inv.errores %}
+                                    <li><span class="badge bg-danger">{{ error }}</span></li>
+                                    {% endfor %}
+                                </ul>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<form method="POST" action="{{ url_for('importacion.confirmar') }}" class="mt-4">
+    <div class="form-actions">
+        {% if validos %}
+        <button type="submit" class="btn btn-success">
+            <i class="fas fa-check" aria-hidden="true"></i> Importar {{ validos|length }} socios válidos
+        </button>
+        {% else %}
+        <button type="submit" class="btn btn-success" disabled>
+            No hay registros válidos para importar
+        </button>
+        {% endif %}
+        <a href="{{ url_for('importacion.index') }}" class="btn btn-secondary">Volver</a>
+    </div>
+</form>
+{% endblock %}

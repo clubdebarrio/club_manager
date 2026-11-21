@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Panel del sistema{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1><i class="fas fa-satellite-dish" aria-hidden="true"></i> Panel del sistema</h1>
+        <p class="sub">
+            Clubes, planes y estados. Bienvenido, <strong>{{ usuario_actual.nombre }}</strong>.
+        </p>
+    </div>
+</div>
+
+{# --- KPIs --- #}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-building" aria-hidden="true"></i> Clubes totales</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-0">{{ stats.total }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-check-circle" aria-hidden="true"></i> Al día</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-0">{{ stats.al_dia }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-clock" aria-hidden="true"></i> En prueba</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-0">{{ stats.trial }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title"><i class="fas fa-exclamation-triangle" aria-hidden="true"></i> Suspendidos / vencidos</h2>
+            </div>
+            <div class="card-body">
+                <p class="stat__value mb-0">{{ stats.suspendidos + stats.trial_vencido }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# --- Filtro --- #}
+<form method="GET" class="filter-bar mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-6">
+            <input type="text" name="q" class="form-control"
+                   placeholder="Buscar por nombre, CUIT o email..."
+                   value="{{ q }}">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search" aria-hidden="true"></i> Buscar
+            </button>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('sistema.listar') }}"
+               class="btn btn-outline-secondary w-100">
+                Limpiar
+            </a>
+        </div>
+    </div>
+</form>
+
+{# --- Tabla --- #}
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Club</th>
+                    <th>CUIT</th>
+                    <th>Plan</th>
+                    <th>Estado</th>
+                    <th class="text-center">Socios</th>
+                    <th>Tarifa</th>
+                    <th>Últ. login</th>
+                    <th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fila in filas %}
+                {% set c = fila.club %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('sistema.detalle', id=c.id) }}"
+                           class="fw-bold text-decoration-none">
+                            {{ c.nombre }}
+                        </a>
+                        {% if c.email %}
+                        <br>
+                        <small class="text-muted">{{ c.email }}</small>
+                        {% endif %}
+                    </td>
+                    <td class="small">{{ c.cuit }}</td>
+                    <td>
+                        <span class="badge bg-{{
+                            'primary' if c.plan == 'pro' else
+                            'info' if c.plan == 'basico' else
+                            'secondary'
+                        }}">
+                            {{ c.plan|capitalize }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if c.trial_vencido %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-times-circle" aria-hidden="true"></i> TRIAL VENCIDO
+                            </span>
+                        {% elif c.estado_pago == 'suspendido' %}
+                            <span class="badge bg-danger">
+                                <i class="fas fa-pause" aria-hidden="true"></i> SUSPENDIDO
+                            </span>
+                        {% elif c.plan == 'trial' %}
+                            {% set dias = c.dias_restantes_trial %}
+                            <span class="badge bg-warning text-dark fw-bold">
+                                <i class="fas fa-clock" aria-hidden="true"></i> TRIAL ({{ dias }}d)
+                            </span>
+                        {% elif c.estado_pago == 'al_dia' %}
+                            <span class="badge bg-success">
+                                <i class="fas fa-check" aria-hidden="true"></i> AL DÍA
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">
+                                {{ c.estado_pago|upper }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <span class="badge bg-light text-dark border">
+                            {{ fila.socios_activos }}
+                        </span>
+                    </td>
+                    <td class="small">
+                        {% if fila.tarifa %}
+                            {{ fila.tarifa.nombre }}
+                            <br>
+                            <span class="text-muted">
+                                ${{ '{:,.0f}'.format(fila.tarifa.precio_mensual).replace(',', '.') }}/mes
+                            </span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-muted nowrap">
+                        {% if fila.ultimo_login %}
+                            {{ fila.ultimo_login.strftime('%d/%m/%Y %H:%M') }}
+                        {% else %}
+                            <span class="text-muted">Nunca</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('sistema.detalle', id=c.id) }}"
+                           class="btn btn-sm btn-secondary"
+                           title="Ver detalle">
+                            <i class="fas fa-folder-open" aria-hidden="true"></i> Gestionar
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty">
+                            <i class="fas fa-building" aria-hidden="true"></i>
+                            <strong>No hay clubes.</strong>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

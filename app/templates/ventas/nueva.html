@@ -1,0 +1,328 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Venta{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Nueva Venta</h1>
+        <p class="sub">Cargá los productos, definí el método de pago y registrá la venta.</p>
+    </div>
+</div>
+
+<form method="POST" id="venta-form" novalidate>
+    {{ form.hidden_tag() }}
+    <input type="hidden" name="productos_json" id="productos-json">
+    <input type="hidden" name="id_cheque" id="id_cheque_origen" value="">
+
+    <div class="row g-3">
+        <div class="col-lg-6">
+            <div class="form-card h-100">
+                <h2 class="section-title">
+                    <i class="fas fa-box" aria-hidden="true"></i> Agregar productos
+                </h2>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <label for="id_producto" class="form-label">Producto</label>
+                        <select class="form-select" id="id_producto">
+                            <option value="">Seleccionar...</option>
+                            {% for p in productos %}
+                            <option value="{{ p.id }}" data-precio="{{ p.precio_venta }}" data-stock="{{ p.stock_actual }}">
+                                {{ p.nombre }} - ${{ "%.2f"|format(p.precio_venta) }} (Stock: {{ p.stock_actual }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="cantidad" class="form-label">Cantidad</label>
+                        <input type="number" class="form-control" id="cantidad" value="1" min="1">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="button" class="btn btn-primary w-100" onclick="agregarAlCarrito()">Agregar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="form-card h-100">
+                <h2 class="section-title">
+                    <i class="fas fa-file-invoice" aria-hidden="true"></i> Datos de la venta
+                </h2>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        {{ form.fecha.label(class="form-label") }}
+                        {{ form.fecha(class="form-control", type="date") }}
+                        {% for error in form.fecha.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.id_socio.label(class="form-label") }}
+                        {{ form.id_socio(class="form-select", id="id_socio") }}
+                        {% for error in form.id_socio.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.metodo_pago.label(class="form-label") }}
+                        {{ form.metodo_pago(class="form-select", id="metodo_pago") }}
+                        {% for error in form.metodo_pago.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        <label for="id_cuenta" class="form-label">Cuenta de destino</label>
+                        <select class="form-select" id="id_cuenta" name="id_cuenta">
+                            <option value="">Seleccione un método de pago primero</option>
+                        </select>
+                        {% for error in form.id_cuenta.errors %}
+                            <div class="text-danger small">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section mt-3">
+        <h2 class="section-title">
+            <i class="fas fa-cart-shopping" aria-hidden="true"></i> Carrito de compra
+        </h2>
+        <div class="tabla-wrap">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cantidad</th>
+                            <th>Precio Unitario</th>
+                            <th>Subtotal</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="carrito-body">
+                        <tr><td colspan="5" class="text-center text-muted py-3">No hay productos en el carrito.</td></tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <th colspan="3" class="text-end">Total:</th>
+                            <th>$<span id="total-carrito">0.00</span></th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-success">Registrar Venta</button>
+        <a href="{{ url_for('ventas.listar') }}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // ==========================================
+    // 1. Inicializar Select2 en los desplegables
+    // ==========================================
+    if (typeof jQuery !== 'undefined') {
+        // Buscador de Productos
+        jQuery('#id_producto').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Buscar producto...'
+        });
+
+        // Buscador de Socios
+        jQuery('#id_socio').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Buscar socio...',
+            allowClear: true
+        });
+
+        // ========================================================
+        // FIX: Forzar el foco en el campo de texto al abrir
+        // ========================================================
+        jQuery(document).on('select2:open', function () {
+            // Buscamos el input de búsqueda de Select2 que acaba de abrirse
+            let allFound = document.querySelectorAll('.select2-container--open .select2-search__field');
+            if (allFound.length > 0) {
+                // Le damos el foco al último que se abrió
+                allFound[allFound.length - 1].focus();
+            }
+        });
+        // ========================================================
+    }
+
+    // ==========================================
+    // 2. Lógica del Carrito
+    // ==========================================
+    const carrito = [];
+    
+    function actualizarCarrito() {
+        const tbody = document.getElementById('carrito-body');
+        const totalSpan = document.getElementById('total-carrito');
+        tbody.innerHTML = '';
+        let total = 0;
+        carrito.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${item.nombre}</td>
+                <td>${item.cantidad}</td>
+                <td>$${item.precio.toFixed(2)}</td>
+                <td>$${(item.cantidad * item.precio).toFixed(2)}</td>
+                <td>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="eliminarDelCarrito(${index})">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            total += item.cantidad * item.precio;
+        });
+        totalSpan.textContent = total.toFixed(2);
+        document.getElementById('productos-json').value = JSON.stringify(carrito);
+    }
+    
+    window.eliminarDelCarrito = function(index) {
+        carrito.splice(index, 1);
+        actualizarCarrito();
+    }
+    
+    window.agregarAlCarrito = function() {
+        const select = document.getElementById('id_producto');
+        const cantidadInput = document.getElementById('cantidad');
+        const id = parseInt(select.value);
+        if (!id) { alert('Seleccione un producto'); return; }
+        
+        // Select2 mantiene las opciones originales, así que esto sigue funcionando
+        const nombre = select.options[select.selectedIndex].text.split(' - ')[0];
+        const precio = parseFloat(select.options[select.selectedIndex].dataset.precio);
+        const stock = parseInt(select.options[select.selectedIndex].dataset.stock);
+        const cantidad = parseInt(cantidadInput.value) || 1;
+        
+        if (cantidad <= 0) {
+            alert('La cantidad debe ser mayor a 0');
+            return;
+        }
+        if (cantidad > stock) {
+            alert(`Stock insuficiente. Disponible: ${stock}`);
+            return;
+        }
+        
+        const existente = carrito.find(item => item.id === id);
+        if (existente) {
+            if (existente.cantidad + cantidad > stock) {
+                alert(`Stock insuficiente. Disponible: ${stock}`);
+                return;
+            }
+            existente.cantidad += cantidad;
+        } else {
+            carrito.push({ id, nombre, precio, cantidad });
+        }
+        actualizarCarrito();
+        cantidadInput.value = 1;
+        
+        // Limpiar Select2 después de agregar
+        if (typeof jQuery !== 'undefined') {
+            jQuery('#id_producto').val(null).trigger('change');
+        } else {
+            select.value = "";
+        }
+    };
+
+    // ==========================================
+    // 3. Carga dinámica de cuentas
+    // ==========================================
+    const metodoPago = document.getElementById('metodo_pago');
+    const cuentaSelect = document.getElementById('id_cuenta');
+    
+    function cargarCuentas(metodo) {
+        // Si Select2 está activo en este campo, lo destruimos temporalmente para actualizar las opciones
+        if (typeof jQuery !== 'undefined' && jQuery(cuentaSelect).hasClass("select2-hidden-accessible")) {
+            jQuery(cuentaSelect).select2('destroy');
+        }
+
+        cuentaSelect.innerHTML = '<option value="">Cargando...</option>';
+        
+        fetch(`/ventas/api/cuentas_por_metodo?metodo=${metodo}`)
+            .then(response => response.json())
+            .then(data => {
+                cuentaSelect.innerHTML = '';
+                if (data.length === 0) {
+                    cuentaSelect.innerHTML = '<option value="">No hay cuentas disponibles</option>';
+                } else {
+                    data.forEach(c => {
+                        const option = document.createElement('option');
+                        option.value = c.id;
+                        option.textContent = c.nombre;
+                        cuentaSelect.appendChild(option);
+                    });
+                }
+
+                // Volver a inicializar Select2 con las nuevas opciones
+                if (typeof jQuery !== 'undefined') {
+                    jQuery(cuentaSelect).select2({
+                        theme: 'bootstrap-5',
+                        width: '100%'
+                    });
+                }
+            })
+            .catch(() => {
+                cuentaSelect.innerHTML = '<option value="">Error al cargar cuentas</option>';
+                if (typeof jQuery !== 'undefined') {
+                    jQuery(cuentaSelect).select2({
+                        theme: 'bootstrap-5',
+                        width: '100%'
+                    });
+                }
+            });
+    }
+    
+    // --- Gestión de cheque ---
+    function manejarSeleccionCheque() {
+        if (metodoPago.value === 'cheque') {
+            const total = parseFloat(document.getElementById('total-carrito').textContent.replace(',', '.')) || 0;
+            window.abrirModalCheque({
+                monto: total,
+                tipo: 'recibido',
+                origen: 'venta',
+                select_target: 'id_cheque_origen'
+            });
+        }
+    }
+
+    metodoPago.addEventListener('change', function() {
+        if (this.value) {
+            cargarCuentas(this.value);
+            manejarSeleccionCheque();
+        } else {
+            if (typeof jQuery !== 'undefined' && jQuery(cuentaSelect).hasClass("select2-hidden-accessible")) {
+                jQuery(cuentaSelect).select2('destroy');
+            }
+            cuentaSelect.innerHTML = '<option value="">Seleccione un método de pago primero</option>';
+        }
+    });
+    
+    // Inicializar Select2 en cuenta si ya hay un método seleccionado (ej. al recargar)
+    if (metodoPago.value) {
+        cargarCuentas(metodoPago.value);
+        manejarSeleccionCheque();
+    } else {
+        // Inicializar Select2 vacío al principio
+        if (typeof jQuery !== 'undefined') {
+            jQuery(cuentaSelect).select2({
+                theme: 'bootstrap-5',
+                width: '100%'
+            });
+        }
+    }
+});
+</script>
+{% endblock %}

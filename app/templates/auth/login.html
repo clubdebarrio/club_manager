@@ -1,0 +1,80 @@
+{% extends "auth/_shell.html" %}
+
+{% block title %}Iniciar sesión — Club Manager{% endblock %}
+{% block heading %}Iniciar sesión{% endblock %}
+{% block sub %}Ingresá con tu usuario para administrar el club.{% endblock %}
+{% block aside_title %}La tesorería y el padrón, siempre al día.{% endblock %}
+{% block aside_text %}Un solo lugar para socios, cuotas, caja y bancos, tienda, reservas y contabilidad.{% endblock %}
+
+{% block content %}
+{% if mostrar_reenvio %}
+<div class="alert alert-info small mb-3">
+    ¿No te llegó el correo o ya expiró?
+    <a href="{{ url_for('public.reenviar_verificacion') }}" class="alert-link">Pedí un nuevo enlace</a>.
+</div>
+{% endif %}
+
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.username.label(class="form-label") }}
+        {{ form.username(class="form-control" + (" is-invalid" if form.username.errors else ""), placeholder="Ingresá tu usuario", autofocus=true) }}
+        {% for error in form.username.errors %}
+            <div class="invalid-feedback">{{ error }}</div>
+        {% endfor %}
+    </div>
+    
+    <div class="mb-3">
+        {{ form.password.label(class="form-label") }}
+        <div class="input-group">
+            {{ form.password(class="form-control" + (" is-invalid" if form.password.errors else ""), placeholder="Ingresá tu contraseña", id="password-input") }}
+            <button class="btn btn-outline-secondary" type="button" id="toggle-password" title="Mostrar/Ocultar contraseña" tabindex="-1">
+                <i class="fas fa-eye" id="eye-icon"></i>
+            </button>
+            {% for error in form.password.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    {{ form.submit(class="btn btn-primary auth-submit") }}
+</form>
+
+<div class="auth-alt">
+    <a href="{{ url_for('public.solicitar_reset_password') }}">¿Olvidaste tu contraseña?</a>
+</div>
+{% endblock %}
+
+{% block foot %}
+<div class="auth-alt">
+    ¿No tenés cuenta? <a href="{{ url_for('public.signup') }}">Creá tu club gratis</a>
+</div>
+<a class="auth-back" href="{{ url_for('main.index') }}">
+    <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver al inicio
+</a>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const togglePassword = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password-input');
+    const eyeIcon = document.getElementById('eye-icon');
+
+    if (togglePassword && passwordInput) {
+        togglePassword.addEventListener('click', function () {
+            // Alternar el tipo de input
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            
+            // Alternar el icono (ojo abierto / ojo tachado)
+            if (type === 'text') {
+                eyeIcon.classList.remove('fa-eye');
+                eyeIcon.classList.add('fa-eye-slash');
+            } else {
+                eyeIcon.classList.remove('fa-eye-slash');
+                eyeIcon.classList.add('fa-eye');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

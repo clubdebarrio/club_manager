@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Descontar Cheque #{{ cheque.numero }}{% endblock %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Descontar Cheque #{{ cheque.numero }} de la cuenta</h1>
+        <p class="sub">Descontá el cheque de la cuenta bancaria elegida.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('cheques.listar', tipo='emitido') }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <dl class="detail-list">
+            <dt>Banco emisor</dt>
+            <dd>{{ cheque.banco_emisor }}</dd>
+            <dt>Titular</dt>
+            <dd>{{ cheque.titular }}</dd>
+            <dt>Monto</dt>
+            <dd class="num">{{ cheque.monto|pesos }}</dd>
+            <dt>Vencimiento</dt>
+            <dd>{{ cheque.fecha_cobro.strftime('%d/%m/%Y') if cheque.fecha_cobro else '-' }}</dd>
+        </dl>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle"></i>
+    Al confirmar, se descuenta <strong>{{ cheque.monto|pesos }}</strong>
+    de la cuenta bancaria seleccionada y el cheque queda marcado
+    como <strong>descontado</strong>.
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        <h2 class="section-title">Datos del descuento</h2>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Cuenta bancaria origen</label>
+                <select name="id_cuenta" class="form-select" required>
+                    <option value="">— Elegir —</option>
+                    {% for c in cuentas %}
+                        <option value="{{ c.id }}">{{ c.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Fecha de descuento</label>
+                <input type="date" name="fecha_pago" class="form-control"
+                       value="{{ cheque.fecha_cobro.strftime('%Y-%m-%d') if cheque.fecha_cobro else '' }}"
+                       required>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-money-check-dollar"></i> Confirmar Descuento
+            </button>
+            <a href="{{ url_for('cheques.listar', tipo='emitido') }}" class="btn btn-secondary">
+                Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

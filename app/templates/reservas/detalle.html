@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}Detalle Reserva #{{ reserva.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Reserva #{{ reserva.id }}</h1>
+        <p class="sub">Detalle de la reserva, estado de cuenta y movimientos registrados.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('reservas.editar', id=reserva.id) }}" class="btn btn-secondary btn-sm">
+            <i class="fas fa-edit"></i> Editar
+        </a>
+        <a href="{{ url_for('reservas.listar') }}" class="btn btn-secondary btn-sm">Volver</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="detail-grid">
+            <dl class="detail-list">
+                <dt>Instalación</dt>
+                <dd>{{ reserva.instalacion.nombre }}</dd>
+                <dt>Socio</dt>
+                <dd>{{ reserva.socio.apellido ~ ', ' ~ reserva.socio.nombre if reserva.socio else 'No Socio' }}</dd>
+                <dt>Motivo</dt>
+                <dd>{{ reserva.motivo }}</dd>
+                <dt>Estado</dt>
+                <dd>
+                    <span class="badge bg-{{
+                        'success' if reserva.estado_efectivo == 'confirmada' else
+                        'secondary' if reserva.estado_efectivo == 'finalizada' else
+                        'danger' if reserva.estado_efectivo == 'cancelada' else
+                        'secondary'
+                    }}">
+                        {{ reserva.estado_efectivo|capitalize }}
+                    </span>
+                    {% if reserva.estado_efectivo != reserva.estado %}
+                        <small class="text-muted">(se finaliza al pasar la fecha)</small>
+                    {% endif %}
+                </dd>
+            </dl>
+            <dl class="detail-list">
+                <dt>Inicio</dt>
+                <dd class="nowrap">{{ r.fecha_inicio|localdatetime }}</dd>
+                <dt>Fin</dt>
+                <dd class="nowrap">{{ reserva.fecha_fin|localdatetime }}</dd>
+                <dt>Monto Total</dt>
+                <dd class="num">{{ reserva.monto_total|pesos }}</dd>
+                <dt>Reservado el</dt>
+                <dd class="nowrap">{{ reserva.fecha_reserva|localdatetime }}</dd>
+                {% if reserva.observaciones %}
+                    <dt>Observaciones</dt>
+                    <dd>{{ reserva.observaciones }}</dd>
+                {% endif %}
+            </dl>
+        </div>
+    </div>
+</div>
+
+{# ---------------- Panel de pagos ---------------- #}
+<div class="card mt-3">
+    <div class="card-body">
+        <h2 class="section-title"><i class="fas fa-file-invoice-dollar" aria-hidden="true"></i> Estado de cuenta</h2>
+        <div class="kv">
+            <span class="k">Monto total</span>
+            <span class="v num">{{ reserva.monto_total|pesos }}</span>
+        </div>
+        <div class="kv">
+            <span class="k">Cobrado</span>
+            <span class="v num">{{ reserva.total_pagado|pesos }}</span>
+        </div>
+        <div class="total-line">
+            <span>Saldo pendiente</span>
+            <span class="amount">
+                {% if reserva.esta_pagada %}
+                    <span class="badge bg-success"><i class="fas fa-check-circle"></i> Pagada</span>
+                {% else %}
+                    {{ reserva.saldo_pendiente|pesos }}
+                {% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+{% if pagos %}
+<div class="card mt-3">
+    <div class="card-header">
+        <h2 class="section-title mb-0"><i class="fas fa-receipt" aria-hidden="true"></i> Movimientos de cuenta</h2>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Monto</th>
+                        <th>Método</th>
+                        <th>Cuenta</th>
+                        <th>Comprobante</th>
+                        <th>Observaciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in pagos %}
+                    <tr class="{{ 'table-danger' if p.tipo == 'devolucion' else '' }}">
+                        <td class="nowrap">{{ p.fecha_pago.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>
+                            {% if p.tipo == 'devolucion' %}
+                                <span class="badge bg-danger">Devolución</span>
+                            {% else %}
+                                <span class="badge bg-success">Pago</span>
+                            {% endif %}
+                        </td>
+                        <td class="num">{{ p.monto|pesos }}</td>
+                        <td>{{ p.metodo_pago|capitalize }}</td>
+                        <td>{{ p.cuenta.nombre if p.cuenta else '—' }}</td>
+                        <td>{{ p.comprobante or '—' }}</td>
+                        <td>{{ p.observaciones or '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ---------------- Botones de acción ---------------- #}
+<div class="action-bar mt-3">
+    {% if not reserva.esta_pagada and reserva.estado_efectivo != 'cancelada' %}
+        <a href="{{ url_for('reservas.pagar', id=reserva.id) }}" class="btn btn-success">
+            <i class="fas fa-money-bill"></i> Registrar Pago
+        </a>
+    {% endif %}
+
+    {% if reserva.estado_efectivo == 'confirmada' %}
+        <a href="{{ url_for('reservas.cancelar', id=reserva.id) }}" class="btn btn-danger">
+            <i class="fas fa-times"></i> Cancelar reserva
+        </a>
+    {% endif %}
+</div>
+{% endblock %}

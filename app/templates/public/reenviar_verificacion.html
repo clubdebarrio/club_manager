@@ -1,0 +1,25 @@
+{% extends "auth/_shell.html" %}
+
+{% block title %}Reenviar verificación — Club Manager{% endblock %}
+{% block heading %}Reenviar verificación{% endblock %}
+{% block sub %}Si tu enlace expiró o no lo recibiste, te enviamos uno nuevo.{% endblock %}
+{% block aside_title %}Un paso más y entrás.{% endblock %}
+{% block aside_text %}Confirmá tu email para activar tu acceso a Club Manager.{% endblock %}
+
+{% block content %}
+<form method="POST" novalidate>
+    {{ form.hidden_tag() }}
+    <div class="mb-3">
+        {{ form.email.label(class="form-label") }}
+        {{ form.email(class="form-control" + (" is-invalid" if form.email.errors else ""), placeholder="tu@email.com") }}
+        {% for e in form.email.errors %}
+            <div class="invalid-feedback">{{ e }}</div>
+        {% endfor %}
+    </div>
+    {{ form.submit(class="btn btn-primary auth-submit") }}
+</form>
+
+<div class="auth-alt">
+    <a href="{{ url_for('auth.login') }}">← Volver al inicio de sesión</a>
+</div>
+{% endblock %}

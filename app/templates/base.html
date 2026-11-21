@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1c2e28" />
+    <meta name="description" content="Club Manager — gestión integral del club: socios, cuotas, caja, ventas y reservas." />
+    <title>{% block title %}Gestión de Club{% endblock %}</title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='images/icon-app-256.png') }}"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="{{ url_for('static', filename='images/icon-app-256.png') }}"
+    />
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Font Awesome -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    {% block extra_css %}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="{{ url_for('static', filename='css/club.css') }}"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css"
+      rel="stylesheet"
+    />
+    {% endblock %}
+  </head>
+  <body>
+    <a class="skip-link" href="#contenido">Saltar al contenido</a>
+
+    {# --- Banner de impersonation --- #}
+    {% if session.get('usuario_original_id') %}
+    <div class="cm-impersonation">
+        <div class="cm-impersonation__inner">
+            <span>
+                <i class="fas fa-user-secret" aria-hidden="true"></i>
+                Estás viendo como
+                <strong>{{ session.get('usuario_nombre') }}</strong>
+                <span class="cm-impersonation__meta">
+                    ({{ session.get('usuario_username') }}
+                    · {{ empresa_actual.nombre if empresa_actual else '?' }})
+                </span>
+            </span>
+            <form method="POST" action="{{ url_for('sistema.salir_impersonation') }}">
+                <button type="submit" class="btn btn-sm btn-light text-danger fw-bold">
+                    <i class="fas fa-arrow-right-from-bracket" aria-hidden="true"></i>
+                    Salir de la suplantación
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <nav class="cm-navbar navbar navbar-expand-lg{% if session.get('usuario_original_id') %} is-offset{% endif %}" aria-label="Navegación principal">
+      <div class="container-fluid">
+        <div class="cm-navbar__inner w-100">
+          <a class="cm-brand" href="{{ url_for('main.index') }}">
+            <img
+              class="cm-brand__mark"
+              src="{{ url_for('static', filename='images/icon-app-256.png') }}"
+              alt=""
+              width="32"
+              height="32"
+            />
+            <span>Club Manager</span>
+          </a>
+
+          <button
+            class="navbar-toggler cm-toggler"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#cmNav"
+            aria-controls="cmNav"
+            aria-expanded="false"
+            aria-label="Abrir menú de navegación"
+          >
+            <i class="fas fa-bars" aria-hidden="true"></i>
+          </button>
+
+          <div class="collapse navbar-collapse" id="cmNav">
+            <ul class="cm-nav navbar-nav">
+              {% set u = usuario_actual %}
+
+              <!-- CAJA -->
+              {% if u and u.puede_ver('caja') %}
+              <li class="nav-item">
+                <a
+                  class="nav-link {{ 'is-active' if request.blueprint == 'caja' else '' }}"
+                  href="{{ url_for('caja.index') }}"
+                  {% if request.blueprint == 'caja' %}aria-current="page"{% endif %}
+                >
+                  <i class="fas fa-cash-register leading" aria-hidden="true"></i>Caja
+                </a>
+              </li>
+              {% endif %}
+
+              <!-- SOCIOS (dropdown) -->
+              {% set ver_socios = u and u.puede_ver('socios') %}
+              {% set ver_cuotas = u and u.puede_ver('cuotas') %}
+              {% set ver_config = u and u.puede_ver('configuracion') %}
+              {% if ver_socios or ver_cuotas or ver_config %}
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-link dropdown-toggle {{ 'is-active' if request.blueprint in ['socios', 'config', 'cuotas'] else '' }}"
+                  href="#"
+                  role="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <i class="fas fa-users leading" aria-hidden="true"></i>Socios
+                </a>
+                <ul class="dropdown-menu cm-dropdown">
+                  {% if ver_socios %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('socios.listar') }}">
+                      <i class="fas fa-address-book me-1" aria-hidden="true"></i>Listado de socios
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_cuotas %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('cuotas.listar') }}">
+                      <i class="fas fa-receipt me-1" aria-hidden="true"></i>Cuotas
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_socios and ver_config %}
+                  <li><hr class="dropdown-divider" /></li>
+                  {% endif %}
+                  {% if ver_config %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('config.listar_tipos') }}">
+                      <i class="fas fa-tags me-1" aria-hidden="true"></i>Tipos de socio
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('config.listar_categorias') }}">
+                      <i class="fas fa-layer-group me-1" aria-hidden="true"></i>Categorías
+                    </a>
+                  </li>
+                  <li>
+                      <a class="dropdown-item" href="{{ url_for('config.listar_adicionales') }}">
+                        <i class="fas fa-receipt me-1" aria-hidden="true"></i>Adicionales
+                      </a>
+                  </li>                  
+                  {% endif %}
+                </ul>
+              </li>
+              {% endif %}
+
+              <!-- TIENDA (dropdown) -->
+              {% set ver_ventas = u and u.puede_ver('ventas') %}
+              {% set editar_ventas = u and u.puede_editar('ventas') %}
+              {% set ver_compras = u and u.puede_ver('compras') %}
+              {% if ver_ventas or ver_compras %}
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-link dropdown-toggle {{ 'is-active' if request.blueprint in ['ventas', 'compras'] else '' }}"
+                  href="#"
+                  role="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <i class="fas fa-cart-shopping leading" aria-hidden="true"></i>Tienda
+                </a>
+                <ul class="dropdown-menu cm-dropdown">
+                  {% if ver_ventas %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('ventas.listar') }}">
+                      <i class="fas fa-list me-1" aria-hidden="true"></i>Listado de ventas
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if editar_ventas %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('ventas.nueva') }}">
+                      <i class="fas fa-plus me-1" aria-hidden="true"></i>Nueva venta
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_compras %}
+                  <li><hr class="dropdown-divider" /></li>
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('compras.listar') }}">
+                      <i class="fas fa-bag-shopping me-1" aria-hidden="true"></i>Compras
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('proveedores.cuentas_por_pagar') }}">
+                      <i class="fas fa-file-invoice-dollar me-1" aria-hidden="true"></i>Cuentas por pagar
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_ventas or ver_compras %}
+                  <li><hr class="dropdown-divider" /></li>
+                  {% endif %}
+                  {% if ver_ventas %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('ventas.listar_productos') }}">
+                      <i class="fas fa-box me-1" aria-hidden="true"></i>Productos
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_compras %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('compras.listar_categorias') }}">
+                      <i class="fas fa-tags me-1" aria-hidden="true"></i>Categorías de productos
+                    </a>
+                  </li>
+                  {% endif %}
+                </ul>
+              </li>
+              {% endif %}
+
+              <!-- RESERVAS -->
+              {% if u and u.puede_ver('reservas') %}
+              <li class="nav-item">
+                <a
+                  class="nav-link {{ 'is-active' if request.blueprint == 'reservas' else '' }}"
+                  href="{{ url_for('reservas.listar') }}"
+                  {% if request.blueprint == 'reservas' %}aria-current="page"{% endif %}
+                >
+                  <i class="fas fa-calendar-check leading" aria-hidden="true"></i>Reservas
+                </a>
+              </li>
+              {% endif %}
+
+              <!-- CONFIGURACIÓN (dropdown) -->
+              {% set ver_import = u and u.puede_ver('importacion') %}
+              {% set ver_inst = u and u.puede_ver('instalaciones') %}
+              {% set ver_contab = u and u.puede_ver('contabilidad') %}
+              {% set editar_contab = u and u.puede_editar('contabilidad') %}
+              {% set ver_cheques = u and u.puede_ver('cheques') %}
+              {% set ver_proveedores = u and u.puede_ver('proveedores') %}
+              {% set es_super = u and u.es_super_admin %}
+              {% if ver_import or ver_inst or ver_contab or ver_cheques or ver_proveedores or es_super %}
+              <li class="nav-item dropdown">
+                <a
+                  class="nav-link dropdown-toggle {{ 'is-active' if request.blueprint in ['importacion', 'instalaciones', 'contabilidad', 'oauth', 'cheques', 'roles', 'usuarios', 'proveedores', 'auditoria', 'sistema'] else '' }}"
+                  href="#"
+                  role="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <i class="fas fa-gear leading" aria-hidden="true"></i>Configuración
+                </a>
+                <ul class="dropdown-menu cm-dropdown">
+                  {% if u and u.es_super_admin_sistema %}
+                  <li>
+                      <a class="dropdown-item" href="{{ url_for('sistema.listar') }}">
+                          <i class="fas fa-satellite-dish me-1 text-danger"></i>
+                          <strong>Panel del sistema</strong>
+                      </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  {% endif %}
+                  {% if ver_import %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('importacion.index') }}">
+                      <i class="fas fa-file-import me-1" aria-hidden="true"></i>Importar socios
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_inst %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('instalaciones.listar') }}">
+                      <i class="fas fa-building me-1" aria-hidden="true"></i>Instalaciones
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_proveedores %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('proveedores.listar') }}">
+                      <i class="fas fa-truck-field me-1" aria-hidden="true"></i>Proveedores
+                    </a>
+                  </li>
+                  {% endif %}
+                  {% if ver_cheques %}
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('cheques.listar') }}">
+                      <i class="fas fa-money-check me-1" aria-hidden="true"></i>Cheques
+                    </a>
+                  </li>
+                  {% endif %}
+
+                  {% if ver_contab %}
+                  <li class="dropend">
+                    <a
+                      class="dropdown-item dropdown-toggle"
+                      href="#"
+                      id="cmSubmenuContabilidad"
+                      role="button"
+                      aria-expanded="false"
+                    >
+                      <i class="fas fa-scale-balanced me-1" aria-hidden="true"></i>Contabilidad
+                    </a>
+                    <ul class="dropdown-menu cm-dropdown" aria-labelledby="cmSubmenuContabilidad">
+                      <li>
+                        <a class="dropdown-item" href="{{ url_for('contabilidad.index') }}">
+                          Panel contable
+                        </a>
+                      </li>
+                      {% if editar_contab %}
+                      <li>
+                        <a class="dropdown-item" href="{{ url_for('contabilidad.asignar_cuentas_bancarias') }}">
+                          Asignar cuentas a bancos
+                        </a>
+                      </li>
+                      <li>
+                          <a class="dropdown-item" href="{{ url_for('contabilidad.reportes_index') }}">
+                              Reportes contables
+                          </a>
+                      </li>
+                      {% endif %}
+                      <li>
+                        <a class="dropdown-item" href="{{ url_for('contabilidad.plan_cuentas') }}">
+                          Plan de cuentas
+                        </a>
+                      </li>
+                    </ul>
+                  </li>
+                  {% endif %}
+
+                  {% if es_super %}
+                  <li><hr class="dropdown-divider" /></li>
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('usuarios.listar') }}">
+                      <i class="fas fa-users-cog me-1" aria-hidden="true"></i>Usuarios
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="{{ url_for('roles.listar') }}">
+                      <i class="fas fa-user-shield me-1" aria-hidden="true"></i>Roles y permisos
+                    </a>
+                  </li>
+                  {% endif %}
+
+                  {% if u and u.puede_ver('auditoria') %}
+                  <li>
+                      <a class="dropdown-item" href="{{ url_for('auditoria.listar') }}">
+                          <i class="fas fa-clipboard-list me-1" aria-hidden="true"></i>Auditoría
+                      </a>
+                  </li>
+                  {% endif %}
+
+                  {% if es_super %}
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                      {% if empresa_actual and empresa_actual.puede_usar_chytapay %}
+                          <a class="dropdown-item" href="{{ url_for('config.chytapay_panel') }}">
+                              <i class="fas fa-link me-1" aria-hidden="true"></i>ChytaPay
+                          </a>
+                      {% else %}
+                          <span class="dropdown-item disabled" title="No habilitado para Trial">
+                              <i class="fas fa-lock me-1" aria-hidden="true"></i>ChytaPay
+                          </span>
+                      {% endif %}
+                  </li>
+                  {% endif %}
+                </ul>
+              </li>
+              {% endif %}
+            </ul>
+
+            <div class="cm-utils">
+              <div class="dropdown">
+                <a
+                  class="cm-user dropdown-toggle"
+                  href="#"
+                  role="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <span class="cm-user__avatar" aria-hidden="true">{{ session.get('usuario_nombre', '?')[0] | upper }}</span>
+                  <span class="cm-user__name">{{ session.get('usuario_nombre', '') }}</span>
+                  <i class="fas fa-chevron-down cm-user__chevron" aria-hidden="true"></i>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end cm-dropdown">
+                  <li class="px-2 py-1">
+                    <span class="d-block small" style="color: var(--cm-text-dim);">Sesión iniciada</span>
+                    <strong class="d-block small" style="color: var(--cm-text);">{{ session.get('usuario_username', '') }}</strong>
+                  </li>
+                  <li><hr class="dropdown-divider" /></li>
+                  <li>
+                    <form action="{{ url_for('auth.logout') }}" method="post" class="m-0">
+                      <button type="submit" class="dropdown-item">
+                        <i class="fas fa-arrow-right-from-bracket me-1" aria-hidden="true"></i>Salir
+                      </button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </nav>
+    
+    {# --- Banner de trial --- #}
+    {% if empresa_actual and empresa_actual.plan == 'trial' %}
+        {% set dias = empresa_actual.dias_restantes_trial %}
+        {% if empresa_actual.trial_vencido %}
+        <div class="cm-trial-banner cm-trial-banner--danger" role="status">
+            <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+            <span>
+                <strong>Tu período de prueba venció.</strong>
+                El sistema está en modo solo lectura. Contactanos para reactivar tu cuenta.
+            </span>
+        </div>
+        {% elif dias is not none and dias <= 7 %}
+        <div class="cm-trial-banner cm-trial-banner--warning" role="status">
+            <i class="fas fa-clock" aria-hidden="true"></i>
+            <span>
+                <strong>Te quedan {{ dias }} día{{ 's' if dias != 1 else '' }} de prueba.</strong>
+                Cuando termine, el sistema pasa a modo solo lectura.
+            </span>
+        </div>
+        {% endif %}
+    {% endif %}
+
+    <main class="app-main" id="contenido">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+      <div class="cm-flashes" aria-live="polite">
+        {% for category, message in messages %}
+        {% set cat = category if category != 'message' else 'info' %}
+        <div class="alert alert-{{ cat }} alert-dismissible fade show" role="alert">
+          <i class="fas fa-{{ 'check-circle' if cat == 'success' else 'circle-exclamation' if cat in ['danger', 'warning'] else 'circle-info' }}" aria-hidden="true"></i>
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="app-footer">
+      <span class="app-footer__brand">
+        <img
+          class="app-footer__mark"
+          src="{{ url_for('static', filename='images/icon-app-256.png') }}"
+          alt=""
+          width="20"
+          height="20"
+        />
+        Club Manager · gestión integral del club
+      </span>
+      <span>{% if empresa_actual %}{{ empresa_actual.nombre }}{% endif %}</span>
+    </footer>
+
+    <!-- Modal Nuevo Cheque (GLOBAL) -->
+    <div
+      class="modal fade"
+      id="modalNuevoCheque"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Nuevo Cheque</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+            ></button>
+          </div>
+          <form id="formNuevoCheque">
+            <div class="modal-body">
+              <input type="hidden" id="cheque_origen" name="origen" value="" />
+              <input
+                type="hidden"
+                id="cheque_select_target"
+                name="select_target"
+                value=""
+              />
+              <div class="mb-3">
+                <label for="cheque_numero" class="form-label"
+                  >Número de cheque *</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="cheque_numero"
+                  name="numero"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="cheque_banco" class="form-label"
+                  >Banco emisor *</label
+                >
+                <input
+                  type="text"
+                  class="form-control"
+                  id="cheque_banco"
+                  name="banco_emisor"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="cheque_titular" class="form-label">Titular *</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="cheque_titular"
+                  name="titular"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="cheque_monto" class="form-label">Monto *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  class="form-control"
+                  id="cheque_monto"
+                  name="monto"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="cheque_fecha_emision" class="form-label"
+                  >Fecha de emisión *</label
+                >
+                <input
+                  type="date"
+                  class="form-control"
+                  id="cheque_fecha_emision"
+                  name="fecha_emision"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="cheque_fecha_cobro" class="form-label"
+                  >Fecha de cobro / vencimiento *</label
+                >
+                <input
+                  type="date"
+                  class="form-control"
+                  id="cheque_fecha_cobro"
+                  name="fecha_cobro"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                  <label class="form-label">Tipo</label>
+                  <input type="text" class="form-control money-input" value="Recibido (nos pagan)" disabled>
+                  <input type="hidden" name="tipo" value="recibido">
+                  <small class="form-text text-muted">
+                      Este formulario es solo para cheques <strong>recibidos</strong>
+                      (cheques que nos entregan como pago).
+                  </small>
+              </div>
+              <div class="mb-3">
+                <label for="cheque_observaciones" class="form-label"
+                  >Observaciones</label
+                >
+                <textarea
+                  class="form-control"
+                  id="cheque_observaciones"
+                  name="observaciones"
+                  rows="2"
+                ></textarea>
+              </div>
+              <div id="cheque_error" class="alert alert-danger d-none"></div>
+            </div>
+            <div class="modal-footer">
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-bs-dismiss="modal"
+              >
+                Cancelar
+              </button>
+              <button type="submit" class="btn btn-primary">
+                Guardar Cheque
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/i18n/es.js"></script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const submenuContabilidad = document.getElementById(
+          "cmSubmenuContabilidad"
+        );
+
+        if (submenuContabilidad) {
+          submenuContabilidad.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const submenu = this.nextElementSibling;
+
+            if (submenu) {
+              submenu.classList.toggle("show");
+            }
+          });
+        }
+      });
+    </script>    
+    
+    {% block extra_js %}
+    <!-- Script global para manejo de cheques -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Función global para abrir el modal de cheque
+        window.abrirModalCheque = function (opciones) {
+          // opciones: { monto, tipo, origen, select_target }
+          const monto = opciones.monto || 0;
+          const tipo = opciones.tipo || "recibido";
+          const origen = opciones.origen || "sistema";
+          const selectTarget = opciones.select_target || "";
+
+          document.getElementById("cheque_monto").value =
+            parseFloat(monto).toFixed(2);
+          document.getElementById("cheque_origen").value = origen;
+          document.getElementById("cheque_select_target").value = selectTarget;
+          document.getElementById("cheque_error").classList.add("d-none");
+
+          // Limpiar campos previos (opcional)
+          document.getElementById("cheque_numero").value = "";
+          document.getElementById("cheque_banco").value = "";
+          document.getElementById("cheque_titular").value = "";
+          document.getElementById("cheque_fecha_emision").value = "";
+          document.getElementById("cheque_fecha_cobro").value = "";
+          document.getElementById("cheque_observaciones").value = "";
+
+          const modal = new bootstrap.Modal(
+            document.getElementById("modalNuevoCheque"),
+          );
+          modal.show();
+        };
+
+        // Manejar envío del formulario del modal
+        const form = document.getElementById("formNuevoCheque");
+        const errorDiv = document.getElementById("cheque_error");
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          errorDiv.classList.add("d-none");
+
+          const formData = new FormData(this);
+
+          fetch("/cheques/api/nuevo", {
+            method: "POST",
+            body: formData,
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.error) {
+                errorDiv.textContent = data.error;
+                errorDiv.classList.remove("d-none");
+                return;
+              }
+
+              // Obtener el elemento destino (select o input hidden)
+              const targetId = document.getElementById(
+                "cheque_select_target",
+              ).value;
+              const targetElement = document.getElementById(targetId);
+              if (targetElement) {
+                // Si es un select, agregar opción y seleccionarla
+                if (targetElement.tagName === "SELECT") {
+                  const option = document.createElement("option");
+                  option.value = data.id;
+                  option.textContent = data.descripcion;
+                  targetElement.appendChild(option);
+                  targetElement.value = data.id;
+                } else {
+                  // Si es un input hidden o text, asignar el valor
+                  targetElement.value = data.id;
+                }
+              }
+
+              // Cerrar modal
+              const modal = bootstrap.Modal.getInstance(
+                document.getElementById("modalNuevoCheque"),
+              );
+              modal.hide();
+
+              // Limpiar formulario
+              form.reset();
+
+              // Mensaje de éxito efímero
+              const successMsg = document.createElement("div");
+              successMsg.className = "alert alert-success mt-2";
+              successMsg.textContent =
+                "✅ Cheque creado y asociado correctamente.";
+              document
+                .getElementById("modalNuevoCheque")
+                .querySelector(".modal-body")
+                .appendChild(successMsg);
+              setTimeout(() => successMsg.remove(), 3000);
+            })
+            .catch((error) => {
+              errorDiv.textContent = "Error al crear el cheque: " + error;
+              errorDiv.classList.remove("d-none");
+            });
+        });
+      });
+    </script>
+    {% endblock %}
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        
+        // 1. Al cargar la página, formatear inputs que vienen en formato inglés (70000.00)
+        document.querySelectorAll('.money-input').forEach(function(input) {
+            let val = input.value;
+            if (!val) return;
+            
+            if (val.includes('.') && !val.includes(',')) {
+                let parts = val.split('.');
+                let integer = parts[0];
+                let decimal = parts.length > 1 ? parts[1].substring(0, 2) : null;
+                
+                if (integer) {
+                    integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+                }
+                input.value = integer + (decimal !== null ? ',' + decimal : '');
+            }
+        });
+
+        // 2. Formatear MIENTRAS se escribe
+        document.addEventListener('input', function (e) {
+            if (!e.target.classList.contains('money-input')) return;
+            
+            let input = e.target;
+            let cursor = input.selectionStart;
+            let originalLen = input.value.length;
+            
+            let value = input.value.replace(/[^0-9,]/g, '');
+            let parts = value.split(',');
+            let integer = parts[0];
+            let decimal = parts.length > 1 ? parts[1].substring(0, 2) : null;
+            
+            if (integer) {
+                integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            }
+            
+            input.value = integer + (decimal !== null ? ',' + decimal : '');
+            let newLen = input.value.length;
+            input.setSelectionRange(cursor + (newLen - originalLen), cursor + (newLen - originalLen));
+        });
+
+        // 3. Limpiar ANTES de enviar el formulario
+        document.addEventListener('submit', function (e) {
+            let moneyInputs = e.target.querySelectorAll('.money-input');
+            moneyInputs.forEach(input => {
+                let val = input.value;
+                // Siempre limpiamos los puntos de miles y cambiamos la coma por punto.
+                // Si el input tiene "70.000", se envía "70000".
+                // Si tiene "70.000,50", se envía "70000.50".
+                input.value = val.replace(/\./g, '').replace(',', '.');
+            });
+        });
+    });
+    </script>
+  </body>
+</html>

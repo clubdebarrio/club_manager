@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+
+{% block title %}Nuevo Movimiento{% endblock %}
+
+{% block extra_css %}
+{{ super() }}
+<link href="{{ url_for('static', filename='css/caja.css') }}" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<div class="caja">
+<div class="caja-head">
+    <div>
+        <h1>Registrar movimiento</h1>
+        <p class="sub">En <strong>{{ cuenta_fijada.nombre }}</strong>
+            <span class="saldo-pill">Saldo disponible:
+                <strong class="num {{ 'text-danger' if saldo_disponible < 0 else 'text-success' }}">{{ saldo_disponible|pesos }}</strong>
+                {% if cuenta_fijada.tipo in ('efectivo', 'cartera') %}
+                    <span class="text-muted small">(no admite saldo negativo)</span>
+                {% else %}
+                    <span class="text-muted small">(puede quedar en negativo)</span>
+                {% endif %}
+            </span>
+        </p>
+        <p class="sub small text-muted" id="aviso_cheque" style="display:none;">
+            Los cheques recibidos se acreditan automáticamente a la <strong>Cartera de Cheques (1.1.6)</strong>.
+        </p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('caja.detalle_cuenta', id=cuenta_fijada.id) }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+    </div>
+</div>
+
+<form method="POST" novalidate id="mov-form">
+    {{ form.hidden_tag() }}
+    <input type="hidden" name="modo" id="modo" value="{{ modo }}">
+    <input type="hidden" name="splits_json" id="splits_json">
+    <div class="d-none">
+        {{ form.id_cheque(id="id_cheque") }}
+    </div>
+
+    <div class="form-section" id="fila_cuenta_fija">
+        <h2><i class="fas fa-wallet"></i> Destino y fecha</h2>
+        <p class="desc">Cuenta fija de este comprobante y fecha de registración.</p>
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Cuenta</label>
+                <input type="text" class="form-control" value="{{ cuenta_fijada.nombre }}" readonly>
+                <input type="hidden" name="id_cuenta" id="id_cuenta" value="{{ cuenta_fijada.id }}">
+            </div>
+            <div class="col-md-6">
+                {{ form.fecha.label(class="form-label") }}
+                {{ form.fecha(class="form-control" + (" is-invalid" if form.fecha.errors else ""), type="datetime-local") }}
+                {% for error in form.fecha.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h2><i class="fas fa-book"></i> Contrapartida y sentido</h2>
+        <p class="desc">Cuenta de contrapartida (Recurso, Gasto, Activo, Pasivo o Patrimonio).</p>
+        <div class="row g-3">
+            <div class="col-md-6">
+                {{ form.id_cuenta_contable.label(class="form-label") }}
+                {{ form.id_cuenta_contable(class="form-select" + (" is-invalid" if form.id_cuenta_contable.errors else ""), id="id_cuenta_contable") }}
+                {% for error in form.id_cuenta_contable.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-6" id="tipo_selector_wrap">
+                {{ form.tipo.label(class="form-label") }}
+                {{ form.tipo(class="form-select" + (" is-invalid" if form.tipo.errors else ""), id="tipo") }}
+                <small class="form-text text-muted" id="tipo_ayuda"></small>
+            </div>
+            <div class="col-md-6 d-none" id="tipo_readonly_wrap">
+                <label class="form-label">Tipo de operación</label>
+                <input type="text" class="form-control" id="tipo_readonly" readonly>
+                <small class="form-text text-muted" id="tipo_readonly_ayuda"></small>
+            </div>
+        </div>
+        <div class="mt-3">
+            {{ form.descripcion.label(class="form-label") }}
+            {{ form.descripcion(class="form-control" + (" is-invalid" if form.descripcion.errors else "")) }}
+            {% for error in form.descripcion.errors %}
+                <div class="invalid-feedback">{{ error }}</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="form-section">
+        <h2><i class="fas fa-layer-group"></i> Modalidad</h2>
+        <p class="desc">Un solo método o reparto multi-método en varias cuentas.</p>
+        <div class="seg" role="radiogroup" aria-label="Modalidad">
+            <label>
+                <input type="radio" name="modo_radio" id="modo_simple" value="simple" {{ 'checked' if modo != 'multi' else '' }}>
+                <span>Un solo método</span>
+            </label>
+            <label>
+                <input type="radio" name="modo_radio" id="modo_multi" value="multi" {{ 'checked' if modo == 'multi' else '' }}>
+                <span>Multi-método</span>
+            </label>
+        </div>
+    </div>
+
+    <div id="bloque_simple" class="form-section">
+        <h2><i class="fas fa-money-bill"></i> Método y monto</h2>
+        <p class="desc">Medio de pago y comprobante de esta registración.</p>
+        <div class="row g-3">
+            <div class="col-md-4">
+                {{ form.metodo_pago.label(class="form-label") }}
+                {{ form.metodo_pago(class="form-select" + (" is-invalid" if form.metodo_pago.errors else ""), id="metodo_pago") }}
+                {% for error in form.metodo_pago.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="col-md-4">
+                {{ form.comprobante.label(class="form-label") }}
+                {{ form.comprobante(class="form-control" + (" is-invalid" if form.comprobante.errors else "")) }}
+            </div>
+            <div class="col-md-4 d-flex align-items-center">
+                <div class="form-check mt-4">
+                    {{ form.conciliado(class="form-check-input") }}
+                    {{ form.conciliado.label(class="form-check-label") }}
+                </div>
+            </div>
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                {{ form.monto.label(class="form-label") }}
+                {{ form.monto(class="form-control money-input" + (" is-invalid" if form.monto.errors else ""), placeholder="0.00", id="monto", type="text") }}
+                {% for error in form.monto.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Bloque de datos de cheque (solo visible si metodo_pago == 'cheque') -->
+    <div id="bloque_cheque" style="display:none;">
+        <div class="card mb-3 card-cheque">
+            <div class="card-header">
+                <strong>
+                    <i class="fas fa-money-check"></i>
+                    Datos del cheque
+                </strong>
+                <span id="cheque_tipo_hint" class="ms-2 text-muted small"></span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        {{ form.cheque_numero.label(class="form-label") }}
+                        {{ form.cheque_numero(class="form-control" + (" is-invalid" if form.cheque_numero.errors else ""), id="cheque_numero") }}
+                        {% for error in form.cheque_numero.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.cheque_banco_emisor.label(class="form-label") }}
+                        {{ form.cheque_banco_emisor(class="form-control" + (" is-invalid" if form.cheque_banco_emisor.errors else ""), id="cheque_banco_emisor") }}
+                        {% for error in form.cheque_banco_emisor.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-3" id="wrapper_cheque_titular">
+                        {{ form.cheque_titular.label(class="form-label") }}
+                        {{ form.cheque_titular(class="form-control" + (" is-invalid" if form.cheque_titular.errors else ""), id="cheque_titular") }}
+                        {% for error in form.cheque_titular.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-3">
+                        {{ form.cheque_fecha_emision.label(class="form-label") }}
+                        {{ form.cheque_fecha_emision(class="form-control" + (" is-invalid" if form.cheque_fecha_emision.errors else ""), id="cheque_fecha_emision") }}
+                        {% for error in form.cheque_fecha_emision.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="row g-3 mt-1">
+                    <div class="col-md-4">
+                        {{ form.cheque_fecha_cobro.label(class="form-label") }}
+                        {{ form.cheque_fecha_cobro(class="form-control" + (" is-invalid" if form.cheque_fecha_cobro.errors else ""), id="cheque_fecha_cobro") }}
+                        <small class="form-text text-muted">
+                            Dejalo vacío si es al día. Completalo si es posdatado.
+                        </small>
+                        {% for error in form.cheque_fecha_cobro.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-8">
+                        <div class="alert alert-info mb-0 mt-4">
+                            <small>
+                                <strong>Recordatorio:</strong>
+                                los cheques vencen <strong>1 mes</strong> después
+                                de la fecha de cobro (o de emisión, si es al día).
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bloque_multi" style="display:none;">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Medios de pago</span>
+                <button type="button" class="btn btn-sm btn-primary" id="btn_agregar_split">
+                    <i class="fas fa-plus"></i> Agregar medio
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="tabla-scroll">
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Cuenta</th>
+                            <th>Método</th>
+                            <th class="text-end">Monto</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="splits_body"></tbody>
+                    <tfoot>
+                        <tr class="total-row">
+                            <th colspan="2" class="text-end">Total:</th>
+                            <th class="text-end num">$<span id="total_splits">0.00</span></th>
+                            <th></th>
+                        </tr>
+                    </tfoot>
+                </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="action-bar">
+        <button type="submit" class="btn btn-primary btn-sm">
+            <i class="fas fa-save"></i> Guardar movimiento
+        </button>
+        <a href="{{ url_for('caja.detalle_cuenta', id=cuenta_fijada.id) }}" class="btn btn-outline-secondary btn-sm">Cancelar</a>
+    </div>
+</form>
+</div>
+
+<div class="modal fade" id="modalSplit" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="formSplit">
+                <div class="modal-header">
+                    <h5 class="modal-title">Agregar medio de pago</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cuenta *</label>
+                        <select class="form-select" id="split_id_cuenta" required>
+                            <option value="">— Elegir —</option>
+                            {% for c in cuentas_splits %}
+                                <option value="{{ c.id }}" data-tipo="{{ c.tipo }}">{{ c.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Método *</label>
+                        <select class="form-select" id="split_metodo" required>
+                            <option value="">— Elegir cuenta primero —</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Monto *</label>
+                        <input type="number" step="0.01" class="form-control" id="split_monto" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var $ = function (id) { return document.getElementById(id); };
+
+    // ============ INICIALIZAR SELECT2 ============
+    if (typeof jQuery !== 'undefined') {
+        // 1. Select de Cuenta Contable (Contrapartida)
+        jQuery('#id_cuenta_contable').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Buscar cuenta contable...'
+        });
+
+        // 2. Select de Cuenta dentro del modal de Splits (Multi-método)
+        if (jQuery('#split_id_cuenta').length) {
+            jQuery('#split_id_cuenta').select2({
+                theme: 'bootstrap-5',
+                width: '100%',
+                placeholder: 'Buscar cuenta...',
+                dropdownParent: jQuery('#modalSplit') // Importante para que el buscador se vea sobre el modal
+            });
+        }
+
+        // 3. Forzar el foco al abrir cualquier Select2
+        jQuery(document).on('select2:open', function () {
+            let allFound = document.querySelectorAll('.select2-container--open .select2-search__field');
+            if (allFound.length > 0) {
+                allFound[allFound.length - 1].focus();
+            }
+        });
+    }
+
+    // ============ ESTADO ============
+    window.__splits = {{ splits_iniciales|tojson }};
+
+    // ============ DATOS DEL SERVIDOR ============
+    var cuentasSplits = {{ cuentas_splits|tojson }};
+    var metodosPorTipo = {{ metodos_por_tipo|tojson }};
+    var metodosPorTipoMulti = {{ metodos_por_tipo_multi|tojson }};
+    var nombresMetodos = {{ nombres_metodos|tojson }};
+
+    // ============ REFERENCIAS ============
+    var movForm = $('mov-form');
+    var modoInput = $('modo');
+    var splitsJsonInput = $('splits_json');
+    var radioSimple = $('modo_simple');
+    var radioMulti = $('modo_multi');
+    var bloqueSimple = $('bloque_simple');
+    var bloqueMulti = $('bloque_multi');
+    var filaCuentaFija = $('fila_cuenta_fija');
+    var cuentaContableSelect = $('id_cuenta_contable');
+    var tipoSelect = $('tipo');
+    var tipoAyuda = $('tipo_ayuda');
+    var tipoSelectorWrap = $('tipo_selector_wrap');
+    var tipoReadonlyWrap = $('tipo_readonly_wrap');
+    var tipoReadonly = $('tipo_readonly');
+    var tipoReadonlyAyuda = $('tipo_readonly_ayuda');
+    var metodoPagoSelect = $('metodo_pago');
+    var splitsBody = $('splits_body');
+    var totalSplitsSpan = $('total_splits');
+    var modalSplit = new bootstrap.Modal($('modalSplit'));
+    var formSplit = $('formSplit');
+    var splitCuenta = $('split_id_cuenta');
+    var splitMetodo = $('split_metodo');
+    var splitMonto = $('split_monto');
+
+    function cuentaPorId(id) {
+        for (var i = 0; i < cuentasSplits.length; i++) {
+            if (cuentasSplits[i].id === id) return cuentasSplits[i];
+        }
+        return null;
+    }
+
+    // ============ SUBMIT INTERCEPTOR ============
+    movForm.addEventListener('submit', function (e) {
+        modoInput.value = radioMulti.checked ? 'multi' : 'simple';
+        splitsJsonInput.value = JSON.stringify(window.__splits);
+        if (modoInput.value === 'multi' && window.__splits.length === 0) {
+            e.preventDefault();
+            alert('Cargá al menos un medio de pago antes de guardar.');
+        }
+    });
+
+    // ============ MODO ============
+    function aplicarModo() {
+        var esMulti = radioMulti.checked;
+        modoInput.value = esMulti ? 'multi' : 'simple';
+        bloqueSimple.style.display = esMulti ? 'none' : '';
+        bloqueMulti.style.display = esMulti ? '' : 'none';
+        filaCuentaFija.style.display = esMulti ? 'none' : '';
+    }
+    radioSimple.addEventListener('change', aplicarModo);
+    radioMulti.addEventListener('change', aplicarModo);
+    aplicarModo();
+
+    // ============ TIPO AUTO ============
+    function ajustarOpcionesTipo(contrapartidaTipo) {
+        if (contrapartidaTipo === 'Recurso') {
+            tipoSelect.innerHTML = '<option value="ingreso">Ingreso</option>';
+            tipoSelect.value = 'ingreso';
+            tipoSelectorWrap.classList.add('d-none');
+            tipoReadonlyWrap.classList.remove('d-none');
+            tipoReadonly.value = 'Ingreso';
+            tipoReadonly.className = 'form-control bg-success text-white';
+            tipoReadonlyAyuda.textContent = 'La contrapartida es un Recurso: siempre Ingreso.';
+        } else if (contrapartidaTipo === 'Gasto') {
+            tipoSelect.innerHTML = '<option value="egreso">Egreso</option>';
+            tipoSelect.value = 'egreso';
+            tipoSelectorWrap.classList.add('d-none');
+            tipoReadonlyWrap.classList.remove('d-none');
+            tipoReadonly.value = 'Egreso';
+            tipoReadonly.className = 'form-control bg-danger text-white';
+            tipoReadonlyAyuda.textContent = 'La contrapartida es un Gasto: siempre Egreso.';
+        } else {
+            var valorActual = tipoSelect.value;
+            tipoSelect.innerHTML = '';
+            var ops = [['ingreso', 'Ingreso'], ['egreso', 'Egreso']];
+            for (var i = 0; i < ops.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = ops[i][0];
+                opt.textContent = ops[i][1];
+                tipoSelect.appendChild(opt);
+            }
+            tipoSelect.value = (valorActual === 'ingreso' || valorActual === 'egreso')
+                ? valorActual : 'ingreso';
+            tipoSelectorWrap.classList.remove('d-none');
+            tipoReadonlyWrap.classList.add('d-none');
+            tipoAyuda.textContent = contrapartidaTipo + ': elegí Ingreso o Egreso.';
+        }
+    }
+
+    function ajustarPorContrapartida() {
+        var opt = cuentaContableSelect.options[cuentaContableSelect.selectedIndex];
+        if (!opt) return;
+        var texto = opt.textContent || '';
+        var codigo = texto.split(' - ')[0].trim();
+        var tipoContable = 'Otro';
+        if (codigo.indexOf('4.') === 0) tipoContable = 'Recurso';
+        else if (codigo.indexOf('5.') === 0) tipoContable = 'Gasto';
+        ajustarOpcionesTipo(tipoContable);
+    }
+    if (typeof jQuery !== 'undefined') {
+        jQuery('#id_cuenta_contable').on('change select2:select', function () {
+            ajustarPorContrapartida();
+        });
+    } else {
+        cuentaContableSelect.addEventListener('change', ajustarPorContrapartida);
+    }
+    
+    // Ejecutar al cargar por si viene con un valor por defecto
+    if (cuentaContableSelect.value) {
+        ajustarPorContrapartida();
+    }
+
+    // ============ MÉTODOS POR CUENTA (SIMPLE) ============
+    function filtrarMetodosSimple() {
+        var cuentaId = parseInt($('id_cuenta').value);
+        var cuenta = cuentaPorId(cuentaId);
+        var tipoCuenta = cuenta ? cuenta.tipo : 'efectivo';
+        var permitidos = metodosPorTipo[tipoCuenta] || [];
+        var valorActual = metodoPagoSelect.value;
+        metodoPagoSelect.innerHTML = '';
+        for (var i = 0; i < permitidos.length; i++) {
+            var o = document.createElement('option');
+            o.value = permitidos[i];
+            o.textContent = nombresMetodos[permitidos[i]] || permitidos[i];
+            metodoPagoSelect.appendChild(o);
+        }
+        // Reasignar SIEMPRE: si el valor anterior está en la lista,
+        // restaurarlo; si no, usar el primero.
+        if (permitidos.indexOf(valorActual) !== -1) {
+            metodoPagoSelect.value = valorActual;
+        } else {
+            metodoPagoSelect.value = permitidos[0] || '';
+        }
+    }
+    function actualizarAvisoCheque() {
+        var aviso = $('aviso_cheque');
+        var bloqueCheque = $('bloque_cheque');
+        var hint = $('cheque_tipo_hint');
+        var wrapperTitular = $('wrapper_cheque_titular');
+        var inputTitular = $('cheque_titular');
+
+        if (metodoPagoSelect.value === 'cheque') {
+            if (aviso) aviso.style.display = '';
+            if (bloqueCheque) bloqueCheque.style.display = '';
+            var esEgreso = (tipoSelect.value === 'egreso');
+            if (hint) {
+                hint.textContent = esEgreso
+                    ? '(cheque emitido — el titular es el club)'
+                    : '(cheque recibido — se enviará a la cartera)';
+            }
+            // Si es emitido, ocultar el campo titular (el backend lo completa)
+            if (wrapperTitular) {
+                wrapperTitular.style.display = esEgreso ? 'none' : '';
+            }
+            if (inputTitular && esEgreso) {
+                inputTitular.value = ''; // limpiar por las dudas
+            }
+        } else {
+            if (aviso) aviso.style.display = 'none';
+            if (bloqueCheque) bloqueCheque.style.display = 'none';
+        }
+    }
+    metodoPagoSelect.addEventListener('change', actualizarAvisoCheque);
+    tipoSelect.addEventListener('change', actualizarAvisoCheque);   // ← NUEVA
+
+    filtrarMetodosSimple();
+    actualizarAvisoCheque();
+
+    // ============ SPLITS (MULTI) ============
+    function renderSplits() {
+        splitsBody.innerHTML = '';
+        var total = 0;
+        if (window.__splits.length === 0) {
+            splitsBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay medios cargados.</td></tr>';
+        }
+        for (var i = 0; i < window.__splits.length; i++) {
+            var s = window.__splits[i];
+            var cta = cuentaPorId(s.id_cuenta);
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' + (cta ? cta.nombre : '(cuenta eliminada)') + '</td>' +
+                '<td>' + (nombresMetodos[s.metodo_pago] || s.metodo_pago) + '</td>' +
+                '<td class="text-end">$' + parseFloat(s.monto).toFixed(2) + '</td>' +
+                '<td><button type="button" class="btn btn-sm btn-danger" onclick="eliminarSplit(' + i + ')"><i class="fas fa-trash"></i></button></td>';
+            splitsBody.appendChild(tr);
+            total += parseFloat(s.monto);
+        }
+        totalSplitsSpan.textContent = total.toFixed(2);
+        splitsJsonInput.value = JSON.stringify(window.__splits);
+    }
+
+    window.eliminarSplit = function (idx) {
+        window.__splits.splice(idx, 1);
+        renderSplits();
+    };
+
+    $('btn_agregar_split').addEventListener('click', function () {
+        formSplit.reset();
+        splitMetodo.innerHTML = '<option value="">— Elegir cuenta primero —</option>';
+        modalSplit.show();
+    });
+
+    function actualizarMetodosSplit() {
+        var cta = cuentaPorId(parseInt(splitCuenta.value));
+        splitMetodo.innerHTML = '';
+        if (!cta) {
+            splitMetodo.innerHTML = '<option value="">— Elegir cuenta primero —</option>';
+            return;
+        }
+        var permitidos = metodosPorTipoMulti[cta.tipo] || [];
+        
+        if (permitidos.length === 0) {
+            splitMetodo.innerHTML = '<option value="">No hay métodos para esta cuenta</option>';
+            return;
+        }
+
+        for (var i = 0; i < permitidos.length; i++) {
+            var o = document.createElement('option');
+            o.value = permitidos[i];
+            o.textContent = nombresMetodos[permitidos[i]] || permitidos[i];
+            splitMetodo.appendChild(o);
+        }
+    }
+
+    // Escuchar el evento con jQuery para que Select2 lo detecte
+    if (typeof jQuery !== 'undefined') {
+        jQuery('#split_id_cuenta').on('change select2:select', function () {
+            actualizarMetodosSplit();
+        });
+    } else {
+        splitCuenta.addEventListener('change', actualizarMetodosSplit);
+    }
+
+    formSplit.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var idCuenta = parseInt(splitCuenta.value);
+        if (!idCuenta) { alert('Elegí una cuenta'); return; }
+        var metodo = splitMetodo.value;
+        if (!metodo) { alert('Elegí un método'); return; }
+        var monto = parseFloat(splitMonto.value);
+        if (!monto || monto <= 0) { alert('Monto inválido'); return; }
+
+        window.__splits.push({
+            id_cuenta: idCuenta,
+            metodo_pago: metodo,
+            monto: monto,
+            conciliado: ['efectivo', 'deposito_efectivo', 'debito', 'credito'].indexOf(metodo) !== -1,
+        });
+        renderSplits();
+        if (document.activeElement) document.activeElement.blur();
+        modalSplit.hide();
+    });
+
+    // ============ INIT ============
+    renderSplits();
+});
+</script>
+{% endblock %}

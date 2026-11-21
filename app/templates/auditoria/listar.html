@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% from "_pagination.html" import render_pagination %}
+
+{% block title %}Auditoría{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Auditoría</h1>
+        <p class="sub">Registro de todas las acciones del club.</p>
+    </div>
+</div>
+
+{# ---------------- Filtros ---------------- #}
+<form method="GET" class="filter-bar mb-3">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small mb-1">Usuario</label>
+            <select name="usuario_id" class="form-select form-select-sm">
+                <option value="">— Todos —</option>
+                {% for u in usuarios %}
+                    <option value="{{ u.id }}"
+                            {{ 'selected' if filtro_usuario == u.id else '' }}>
+                        {{ u.username }} ({{ u.nombre }})
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1">Entidad</label>
+            <select name="entidad" class="form-select form-select-sm">
+                <option value="">— Todas —</option>
+                {% for e in entidades_disponibles %}
+                    <option value="{{ e }}"
+                            {{ 'selected' if filtro_entidad == e else '' }}>
+                        {{ e }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1">Acción</label>
+            <select name="accion" class="form-select form-select-sm">
+                <option value="">— Todas —</option>
+                {% for a in acciones_disponibles %}
+                    <option value="{{ a }}"
+                            {{ 'selected' if filtro_accion == a else '' }}>
+                        {{ a }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small mb-1">Desde</label>
+            <input type="date" name="fecha_desde"
+                   class="form-control form-control-sm"
+                   value="{{ fecha_desde }}">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-1">Hasta</label>
+            <input type="date" name="fecha_hasta"
+                   class="form-control form-control-sm"
+                   value="{{ fecha_hasta }}">
+        </div>
+        <div class="col-md-12">
+            <label class="form-label small mb-1">Buscar</label>
+            <input type="text" name="q"
+                   class="form-control form-control-sm"
+                   placeholder="Texto libre (nota, entidad, acción)..."
+                   value="{{ q }}">
+        </div>
+        <div class="col-md-12">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fas fa-search" aria-hidden="true"></i> Filtrar
+            </button>
+            <a href="{{ url_for('auditoria.listar') }}"
+               class="btn btn-outline-secondary btn-sm">
+                Limpiar
+            </a>
+        </div>
+    </div>
+</form>
+
+{# ---------------- Tabla ---------------- #}
+<div class="tabla-wrap">
+    <div class="table-responsive">
+        <table class="table table-sm table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Usuario</th>
+                    <th>Acción</th>
+                    <th>Entidad</th>
+                    <th>ID</th>
+                    <th>Nota</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in registros %}
+                {% set tiene_detalle = r.datos_antes or r.datos_despues %}
+                <tr>
+                    <td class="small nowrap">
+                        {{ r.timestamp.strftime('%d/%m/%Y %H:%M:%S') }}
+                    </td>
+                    <td class="small">
+                        {% if r.usuario %}
+                            {{ r.usuario.username }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-{{
+                            'success' if r.accion in ('crear', 'login', 'reactivar', 'importar') else
+                            'info' if r.accion in ('editar', 'cambiar_estado', 'asignar_cuentas', 'conciliar', 'cobrar', 'entregar') else
+                            'danger' if r.accion in ('eliminar', 'cancelar', 'baja') else
+                            'secondary'
+                        }}">{{ r.accion }}</span>
+                    </td>
+                    <td class="small">{{ r.entidad }}</td>
+                    <td class="small">{{ r.entidad_id or '—' }}</td>
+                    <td class="small text-muted">{{ r.nota or '' }}</td>
+                    <td class="text-end">
+                        {% if tiene_detalle %}
+                            <button type="button"
+                                    class="btn btn-sm btn-secondary btn-icon"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#detalle-{{ r.id }}"
+                                    aria-expanded="false"
+                                    title="Ver detalle">
+                                <i class="fas fa-code" aria-hidden="true"></i>
+                            </button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if tiene_detalle %}
+                <tr class="collapse" id="detalle-{{ r.id }}">
+                    <td colspan="7" class="bg-light">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <div class="small fw-bold mb-1">Antes:</div>
+                                <pre class="small mb-0 bg-white p-2 border rounded"
+                                     style="max-height: 300px; overflow-y: auto;">{{ r.datos_antes | tojson(indent=2) if r.datos_antes else '—' }}</pre>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="small fw-bold mb-1">Después:</div>
+                                <pre class="small mb-0 bg-white p-2 border rounded"
+                                     style="max-height: 300px; overflow-y: auto;">{{ r.datos_despues | tojson(indent=2) if r.datos_despues else '—' }}</pre>
+                            </div>
+                        </div>
+                        {% if r.ip or r.user_agent %}
+                        <div class="mt-2 small text-muted">
+                            {% if r.ip %}<strong>IP:</strong> {{ r.ip }}{% endif %}
+                            {% if r.user_agent %}
+                                {% if r.ip %} · {% endif %}
+                                <strong>UA:</strong> {{ r.user_agent }}
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% else %}
+                <tr>
+                    <td colspan="7">
+                        <div class="empty">
+                            <i class="fas fa-clipboard-list" aria-hidden="true"></i>
+                            <strong>No hay registros de auditoría con esos filtros.</strong>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{{ render_pagination(pagination, 'auditoria.listar', {
+    'usuario_id': filtro_usuario or '',
+    'entidad': filtro_entidad or '',
+    'accion': filtro_accion or '',
+    'fecha_desde': fecha_desde or '',
+    'fecha_hasta': fecha_hasta or '',
+    'q': q or '',
+}) }}
+{% endblock %}

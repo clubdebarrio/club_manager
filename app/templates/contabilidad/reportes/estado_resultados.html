@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block title %}Estado de Resultados{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <a href="{{ url_for('contabilidad.reportes_index') }}"
+           class="text-decoration-none small">
+            <i class="fas fa-arrow-left"></i> Reportes
+        </a>
+        <h1 class="mt-1">Estado de Resultados</h1>
+        <p class="sub">Recursos y gastos del período, con el resultado final.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('contabilidad.estado_resultados_excel',
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            comparar='1' if comparar else '0') }}"
+           class="btn btn-success btn-sm">
+            <i class="fas fa-file-excel"></i> Excel
+        </a>
+        <a href="{{ url_for('contabilidad.estado_resultados_pdf',
+                            fecha_desde=fecha_desde,
+                            fecha_hasta=fecha_hasta,
+                            comparar='1' if comparar else '0') }}"
+           class="btn btn-danger btn-sm">
+            <i class="fas fa-file-pdf"></i> PDF
+        </a>
+    </div>
+</div>
+
+{# --- Filtros --- #}
+<form method="GET" class="filter-bar">
+    <div class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">Desde</label>
+            <input type="date" name="fecha_desde" class="form-control"
+                   value="{{ fecha_desde }}" required>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Hasta</label>
+            <input type="date" name="fecha_hasta" class="form-control"
+                   value="{{ fecha_hasta }}" required>
+        </div>
+        <div class="col-md-3">
+            <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox"
+                       name="comparar" value="1" id="comparar"
+                       {{ 'checked' if comparar else '' }}>
+                <label class="form-check-label small" for="comparar">
+                    Comparar con año anterior
+                </label>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search"></i> Filtrar
+            </button>
+        </div>
+    </div>
+</form>
+
+{# --- Banner del resultado --- #}
+<div class="alert alert-{{ 'success' if datos.resultado >= 0 else 'danger' }} d-flex align-items-center mb-4">
+    <i class="fas fa-{{ 'chart-line' if datos.resultado >= 0 else 'chart-area' }} fa-2x me-3"></i>
+    <div>
+        <div class="small">
+            {{ 'Superávit' if datos.resultado >= 0 else 'Déficit' }} del período
+        </div>
+        <div class="display-6 num">
+            {{ datos.resultado|pesos }}
+        </div>
+    </div>
+    {% if comparacion %}
+    <div class="ms-auto text-end small">
+        <div class="opacity-75">Año anterior:</div>
+        <strong class="num">{{ comparacion.resultado|pesos }}</strong>
+    </div>
+    {% endif %}
+</div>
+
+{# --- Recursos --- #}
+<div class="card mb-3">
+    <div class="card-header">
+        <h2 class="section-title">
+            <i class="fas fa-arrow-down"></i> RECURSOS
+        </h2>
+    </div>
+    <div class="card-body p-0">
+        <div class="tabla-scroll">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Código</th>
+                    <th>Concepto</th>
+                    <th class="text-end" style="width: 150px;">Importe</th>
+                    {% if comparacion %}
+                    <th class="text-end" style="width: 150px;">Año anterior</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in datos.recursos %}
+                <tr class="fw-bold">
+                    <td>{{ r.codigo }}</td>
+                    <td>{{ r.nombre }}</td>
+                    <td class="text-end num">{{ r.monto|pesos if r.monto > 0 else '—' }}</td>
+                    {% if comparacion %}
+                        {% set prev = namespace(m=0) %}
+                        {% for pr in comparacion.recursos %}
+                            {% if pr.codigo == r.codigo %}
+                                {% set prev.m = pr.monto %}
+                            {% endif %}
+                        {% endfor %}
+                        <td class="text-end text-muted num">
+                            {{ prev.m|pesos if prev.m > 0 else '—' }}
+                        </td>
+                    {% endif %}
+                </tr>
+                {% for h in r.hijos %}
+                {% if h.monto > 0 %}
+                <tr>
+                    <td class="small text-muted ps-4">{{ h.cuenta.codigo }}</td>
+                    <td class="small ps-4">{{ h.cuenta.nombre }}</td>
+                    <td class="text-end small num">{{ h.monto|pesos }}</td>
+                    {% if comparacion %}
+                        <td class="text-end small text-muted">—</td>
+                    {% endif %}
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="2" class="text-end">TOTAL RECURSOS</td>
+                    <td class="text-end num">{{ datos.total_recursos|pesos }}</td>
+                    {% if comparacion %}
+                    <td class="text-end num">{{ comparacion.total_recursos|pesos }}</td>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+
+{# --- Gastos --- #}
+<div class="card mb-3">
+    <div class="card-header">
+        <h2 class="section-title">
+            <i class="fas fa-arrow-up"></i> GASTOS
+        </h2>
+    </div>
+    <div class="card-body p-0">
+        <div class="tabla-scroll">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 100px;">Código</th>
+                    <th>Concepto</th>
+                    <th class="text-end" style="width: 150px;">Importe</th>
+                    {% if comparacion %}
+                    <th class="text-end" style="width: 150px;">Año anterior</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in datos.gastos %}
+                <tr class="fw-bold">
+                    <td>{{ g.codigo }}</td>
+                    <td>{{ g.nombre }}</td>
+                    <td class="text-end num">{{ g.monto|pesos if g.monto > 0 else '—' }}</td>
+                    {% if comparacion %}
+                        {% set prev = namespace(m=0) %}
+                        {% for pg in comparacion.gastos %}
+                            {% if pg.codigo == g.codigo %}
+                                {% set prev.m = pg.monto %}
+                            {% endif %}
+                        {% endfor %}
+                        <td class="text-end text-muted num">
+                            {{ prev.m|pesos if prev.m > 0 else '—' }}
+                        </td>
+                    {% endif %}
+                </tr>
+                {% for h in g.hijos %}
+                {% if h.monto > 0 %}
+                <tr>
+                    <td class="small text-muted ps-4">{{ h.cuenta.codigo }}</td>
+                    <td class="small ps-4">{{ h.cuenta.nombre }}</td>
+                    <td class="text-end small num">{{ h.monto|pesos }}</td>
+                    {% if comparacion %}
+                        <td class="text-end small text-muted">—</td>
+                    {% endif %}
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr class="total-row">
+                    <td colspan="2" class="text-end">TOTAL GASTOS</td>
+                    <td class="text-end num">{{ datos.total_gastos|pesos }}</td>
+                    {% if comparacion %}
+                    <td class="text-end num">{{ comparacion.total_gastos|pesos }}</td>
+                    {% endif %}
+                </tr>
+            </tfoot>
+        </table>
+        </div>
+    </div>
+</div>
+
+{# --- Resultado Final --- #}
+<div class="card">
+    <div class="card-body text-center py-4 bg-{{ 'success' if datos.resultado >= 0 else 'danger' }} bg-opacity-10">
+        <h2 class="section-title justify-content-center">
+            RESULTADO DEL PERÍODO
+        </h2>
+        <div class="display-4 fw-bold num text-{{ 'success' if datos.resultado >= 0 else 'danger' }}">
+            {{ datos.resultado|pesos }}
+        </div>
+        <div class="small text-muted mt-2">
+            {{ 'Superávit' if datos.resultado >= 0 else 'Déficit' }}
+            entre el {{ fecha_desde }} y el {{ fecha_hasta }}
+        </div>
+    </div>
+</div>
+{% endblock %}

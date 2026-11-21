@@ -1,0 +1,16 @@
+name: Procesar ChytaPay Pendientes
+
+on:
+  schedule:
+    # Se ejecuta cada 5 minutos (el tiempo mínimo de GH Actions)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Permite ejecutarlo a mano desde GitHub
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Llamar al Endpoint
+        run: |
+          curl -X POST https://TU-DOMINIO.com/api/tasks/chytapay-pendientes \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

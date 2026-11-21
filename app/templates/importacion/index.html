@@ -1,0 +1,82 @@
+<!-- templates/importacion/index.html -->
+{% extends "base.html" %}
+
+{% block title %}Importar Socios{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Importar Socios</h1>
+        <p class="sub">Descargá la plantilla, completala y subila para dar de alta socios en bloque.</p>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h2 class="section-title">📥 1. Descargar Plantilla</h2>
+            </div>
+            <div class="card-body text-center">
+                <p>Descarga la plantilla Excel con las columnas y validaciones necesarias.</p>
+                <a href="{{ url_for('importacion.descargar_plantilla') }}" class="btn btn-success">
+                    <i class="fas fa-file-excel" aria-hidden="true"></i> Descargar Plantilla Excel
+                </a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="form-card h-100">
+            <h2 class="section-title">📤 2. Subir Archivo</h2>
+            <p class="section-sub">Completa la plantilla y súbela aquí para importar los socios.</p>
+            <form method="POST" enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+                <div class="mb-3">
+                    {{ form.archivo.label(class="form-label") }}
+                    {{ form.archivo(class="form-control" + (" is-invalid" if form.archivo.errors else "")) }}
+                    {% for error in form.archivo.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-upload" aria-hidden="true"></i> Validar y Previsualizar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h2 class="section-title">📋 Resumen de Campos</h2>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <h6 class="text-danger">Campos obligatorios (*)</h6>
+                <ul>
+                    <li><strong>apellido</strong> - Apellido del socio</li>
+                    <li><strong>nombre</strong> - Nombre del socio</li>
+                    <li><strong>tipo_documento</strong> - DNI, CI, Pasaporte u Otro</li>
+                    <li><strong>nro_documento</strong> - Número de documento (solo números)</li>
+                    <li><strong>tipo_socio</strong> - Debe coincidir con los tipos existentes</li>
+                    <li><strong>categoria_socio</strong> - Debe coincidir con las categorías existentes</li>
+                </ul>
+            </div>
+            <div class="col-md-6">
+                <h6 class="text-info">Campos opcionales</h6>
+                <ul>
+                    <li><strong>numero_socio</strong> - Se genera automáticamente si se deja vacío</li>
+                    <li><strong>email</strong> - Correo electrónico</li>
+                    <li><strong>telefono</strong> - Teléfono de contacto</li>
+                    <li><strong>id_familia</strong> - Número del socio principal (para integrantes de familia)</li>
+                    <li><strong>fecha_alta</strong> - Formato YYYY-MM-DD</li>
+                    <li><strong>fecha_baja</strong> - Formato YYYY-MM-DD (para inactivos)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Pagar Compra #{{ compra.id }}{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>Pagar Compra #{{ compra.id }}</h1>
+        <p class="sub">Registrá un pago parcial o total de la deuda con el proveedor.</p>
+    </div>
+    <div class="actions">
+        <a href="{{ url_for('compras.detalle', id=compra.id) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-5 mb-4">
+        <div class="card">
+            <div class="card-header"><strong>Detalle de la deuda</strong></div>
+            <div class="card-body">
+                <div class="kv">
+                    <span class="k">Proveedor</span>
+                    <span class="v">{{ compra.proveedor_nombre or '—' }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Fecha compra</span>
+                    <span class="v">{{ compra.fecha|localdate }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Total compra</span>
+                    <span class="v num">{{ compra.total|pesos }}</span>
+                </div>
+                <div class="kv">
+                    <span class="k">Total pagado</span>
+                    <span class="v num text-success">{{ compra.total_pagado|pesos }}</span>
+                </div>
+                <div class="total-line">
+                    <span>Saldo pendiente</span>
+                    <span class="amount text-danger">{{ saldo|pesos }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if compra.pagos %}
+        <div class="card mt-3">
+            <div class="card-header"><strong>Pagos anteriores</strong></div>
+            <div class="card-body p-0">
+                <div class="tabla-wrap">
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Método</th>
+                                    <th class="text-end">Monto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in compra.pagos %}
+                                <tr>
+                                    <td>{{ (p.fecha_pago or compra.fecha)|localdate }}</td>
+                                    <td>{{ p.metodo.replace('_', ' ')|capitalize }}</td>
+                                    <td class="text-end num">{{ p.monto|pesos }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-7">
+        <div class="form-card">
+            <h2 class="section-title">
+                <i class="fas fa-money-bill" aria-hidden="true"></i> Registrar pago
+            </h2>
+            <form method="POST" novalidate id="pago-form">
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Monto a pagar *</label>
+                        <input type="number" step="0.01" name="monto"
+                               class="form-control" id="monto"
+                               value="{{ '%.2f'|format(saldo) }}"
+                               max="{{ '%.2f'|format(saldo) }}" required>
+                        <small class="form-text text-muted">
+                            Podés pagar menos para un pago parcial.
+                        </small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Fecha de pago</label>
+                        <input type="date" name="fecha_pago" class="form-control"
+                               value="{{ now.strftime('%Y-%m-%d') if now else '' }}">
+                    </div>
+                </div>
+
+                <div class="mb-3 mt-3">
+                    <label class="form-label">Método de pago *</label>
+                    <select name="metodo" id="metodo" class="form-select" required>
+                        <option value="efectivo">Efectivo</option>
+                        <option value="transferencia">Transferencia</option>
+                        <option value="debito">Débito</option>
+                        <option value="credito">Crédito</option>
+                        <option value="cheque_propio">Cheque propio</option>
+                        <option value="cheque_tercero">Cheque de tercero</option>
+                    </select>
+                </div>
+
+                <!-- Bloque cuenta -->
+                <div class="mb-3" id="bloque_cuenta">
+                    <label class="form-label">Cuenta *</label>
+                    <select name="id_cuenta" id="id_cuenta" class="form-select">
+                        <option value="">— Elegir —</option>
+                        {% for c in cuentas %}
+                        <option value="{{ c.id }}" data-tipo="{{ c.tipo }}">{{ c.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Bloque cheque propio -->
+                <div id="bloque_cheque_propio" style="display:none;">
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Número *</label>
+                            <input type="text" name="cheque_numero" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Banco emisor *</label>
+                            <input type="text" name="cheque_banco_emisor" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Fecha de emisión *</label>
+                            <input type="date" name="cheque_fecha_emision" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-2">
+                            <label class="form-label">Fecha de cobro *</label>
+                            <input type="date" name="cheque_fecha_cobro" class="form-control">
+                        </div>
+                    </div>
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle"></i>
+                        El titular es <strong>{{ empresa_nombre }}</strong>.
+                        El cheque se registra como emitido, pendiente de pago.
+                    </div>
+                </div>
+
+                <!-- Bloque cheque tercero -->
+                <div class="mb-3" id="bloque_cheque_tercero" style="display:none;">
+                    <label class="form-label">Cheque de tercero *</label>
+                    <select name="id_cheque_tercero" id="id_cheque_tercero" class="form-select">
+                        <option value="">— Elegir —</option>
+                        {% for ch in cheques_tercero %}
+                        <option value="{{ ch.id }}" data-monto="{{ ch.monto }}">
+                            #{{ ch.numero }} · {{ ch.banco_emisor }} ·
+                            {{ ch.titular }} · {{ ch.monto|pesos }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% if not cheques_tercero %}
+                    <div class="alert alert-warning mt-2 mb-0 small">
+                        No hay cheques de tercero en cartera.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" name="observaciones" class="form-control" maxlength="200">
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success">Registrar Pago</button>
+                    <a href="{{ url_for('compras.detalle', id=compra.id) }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var $ = function (id) { return document.getElementById(id); };
+    var metodo = $('metodo');
+    var bloqueCuenta = $('bloque_cuenta');
+    var bloqueCP = $('bloque_cheque_propio');
+    var bloqueCT = $('bloque_cheque_tercero');
+    var idCuenta = $('id_cuenta');
+    var idChTercero = $('id_cheque_tercero');
+    var monto = $('monto');
+
+    var opcionesCuenta = Array.from(idCuenta.options).map(function (o) {
+        return { value: o.value, text: o.textContent, tipo: o.dataset.tipo || '' };
+    });
+
+    function filtrarCuentas() {
+        var m = metodo.value;
+        var tipo = null;
+        if (m === 'efectivo') tipo = 'efectivo';
+        else if (m === 'transferencia' || m === 'debito' || m === 'credito') tipo = 'banco';
+
+        idCuenta.innerHTML = '<option value="">— Elegir —</option>';
+        if (!tipo) return;
+        opcionesCuenta.forEach(function (o) {
+            if (o.tipo === tipo) {
+                var opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.text;
+                opt.dataset.tipo = o.tipo;
+                idCuenta.appendChild(opt);
+            }
+        });
+    }
+
+    function aplicarBloques() {
+        var m = metodo.value;
+        var esCuenta = (['efectivo', 'transferencia', 'debito', 'credito'].indexOf(m) !== -1);
+        bloqueCuenta.style.display = esCuenta ? '' : 'none';
+        bloqueCP.style.display = (m === 'cheque_propio') ? '' : 'none';
+        bloqueCT.style.display = (m === 'cheque_tercero') ? '' : 'none';
+        filtrarCuentas();
+    }
+
+    metodo.addEventListener('change', aplicarBloques);
+    aplicarBloques();
+
+    idChTercero.addEventListener('change', function () {
+        var opt = idChTercero.options[idChTercero.selectedIndex];
+        if (opt && opt.dataset.monto) {
+            monto.value = parseFloat(opt.dataset.monto).toFixed(2);
+        }
+    });
+});
+</script>
+{% endblock %}

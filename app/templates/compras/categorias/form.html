@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar' if categoria else 'Nueva' }} Categoría{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>{{ 'Editar' if categoria else 'Nueva' }} Categoría</h1>
+        <p class="sub">Nombre y estado de la categoría de productos.</p>
+    </div>
+</div>
+
+<form method="POST">
+    <div class="form-card">
+        <div class="mb-3">
+            <label for="nombre" class="form-label">Nombre</label>
+            <input type="text" class="form-control" id="nombre" name="nombre" value="{{ categoria.nombre if categoria else '' }}" required>
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="activo" name="activo" {% if categoria and categoria.activo %}checked{% endif %}>
+            <label class="form-check-label" for="activo">Activo</label>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <a href="{{ url_for('compras.listar_categorias') }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
