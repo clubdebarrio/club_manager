@@ -70,6 +70,9 @@ class Config:
     RATELIMIT_TRUSTED_PROXIES = os.environ.get('RATELIMIT_TRUSTED_PROXIES') or None
     BASE_URL = os.environ.get('BASE_URL', '').rstrip('/')
 
+    
+    CRON_SECRET = os.environ.get('CRON_SECRET')
+
     # --- Supabase ---
     SUPABASE_URL = os.environ.get('SUPABASE_URL', '').rstrip('/')
     SUPABASE_SERVICE_ROLE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY', '')
