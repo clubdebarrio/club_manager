@@ -46,9 +46,13 @@
             <div class="card-body">
                 <p>Estos registros tienen errores y no se importarán.</p>
                 {% if invalidos %}
-                <a href="{{ url_for('importacion.descargar_reporte') }}" class="btn btn-warning btn-sm">
-                    <i class="fas fa-download" aria-hidden="true"></i> Descargar Reporte de Errores
-                </a>
+                <!-- CAMBIO 1: De <a href="..."> a <form method="POST"> para no usar cookies -->
+                <form method="POST" action="{{ url_for('importacion.descargar_reporte') }}" class="d-inline">
+                    <input type="hidden" name="invalidos_json" value="{{ invalidos|tojson|forceescape }}">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="fas fa-download" aria-hidden="true"></i> Descargar Reporte de Errores
+                    </button>
+                </form>
                 {% endif %}
             </div>
         </div>
@@ -97,7 +101,10 @@
 </div>
 {% endif %}
 
+<!-- CAMBIO 2: Agregado el input hidden con "validos_json" -->
 <form method="POST" action="{{ url_for('importacion.confirmar') }}" class="mt-4">
+    <input type="hidden" name="validos_json" value="{{ validos|tojson|forceescape }}">
+    
     <div class="form-actions">
         {% if validos %}
         <button type="submit" class="btn btn-success">

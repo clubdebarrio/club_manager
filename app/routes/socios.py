@@ -101,8 +101,8 @@ def crear():
 
     if form.validate_on_submit():
         nuevo_socio = Socio(
-            nombre=form.nombre.data,
-            apellido=form.apellido.data,
+            nombre=form.nombre.data.strip().title(),
+            apellido=form.apellido.data.strip().title(),
             tipo_documento=form.tipo_documento.data,
             nro_documento=form.nro_documento.data,
             email=form.email.data,

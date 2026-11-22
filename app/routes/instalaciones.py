@@ -36,7 +36,7 @@ def nuevo():
     form = InstalacionForm()
     if form.validate_on_submit():
         instalacion = Instalacion(
-            nombre=form.nombre.data,
+            nombre=form.nombre.data.strip().title(),
             descripcion=form.descripcion.data,
             capacidad=form.capacidad.data,
             tipo_cobro=form.tipo_cobro.data,

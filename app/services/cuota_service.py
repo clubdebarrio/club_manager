@@ -68,91 +68,156 @@ class CuotaService:
     @staticmethod
     def generar_cuotas_para_mes(ano, mes, id_empresa=None):
         """
-        Genera cuotas solo para socios principales (cabecera de familia).
-        Filtra a los socios que existían en el período solicitado.
+        Genera cuotas optimizando las consultas a la base de datos.
         """
+        import time
+        t0 = time.time()
+        
         from datetime import date
         import calendar
-        from sqlalchemy import or_
+        from sqlalchemy import or_, insert
+        from sqlalchemy.orm import selectinload
+        from app.models import ConfiguracionCuota, SocioAdicional, Adicional
 
-        # Calculamos el primer y último día del mes solicitado
         fecha_inicio_mes = date(ano, mes, 1)
         ultimo_dia = calendar.monthrange(ano, mes)[1]
         fecha_fin_mes = date(ano, mes, ultimo_dia)
+        periodo = f"{ano}-{mes:02d}"
+        fecha_vencimiento = date(ano, mes, 10)
 
-        # Traemos socios principales de la empresa
-        query = Socio.query.filter(
+        # 1. SOCIOS PRINCIPALES (Usamos selectinload que es más rápido que joinedload)
+        query = Socio.query.options(
+            selectinload(Socio.miembros_familia),
+            selectinload(Socio.tipo_socio_rel),
+            selectinload(Socio.categoria_socio_rel)
+        ).filter(
             Socio.id_familia.is_(None),
-            # REGLA 1: El socio debe haber sido dado de alta antes de que termine el mes
-            Socio.fecha_alta <= fecha_fin_mes
-        )
-        
-        # REGLA 2: El socio no debe haber estado dado de baja antes de que empiece el mes
-        # (Si está activo, fecha_baja es None; si se dio de baja después del mes, sirve)
-        query = query.filter(
-            or_(
-                Socio.fecha_baja.is_(None),
-                Socio.fecha_baja >= fecha_inicio_mes
-            )
+            or_(Socio.fecha_alta.is_(None), Socio.fecha_alta <= fecha_fin_mes),
+            or_(Socio.fecha_baja.is_(None), Socio.fecha_baja >= fecha_inicio_mes)
         )
 
         if id_empresa:
             query = query.filter(Socio.id_empresa == id_empresa)
 
         socios_principales = query.all()
+        print(f"⏱️ Tiempo consulta socios: {time.time() - t0:.2f}s")
+        t1 = time.time()
+        
+        # 2. ADICIONALES
+        adicionales_query = (
+            SocioAdicional.query
+            .join(Socio, SocioAdicional.id_socio == Socio.id)
+            .options(selectinload(SocioAdicional.adicional))
+            .filter(Socio.id_empresa == id_empresa, SocioAdicional.activo == True)
+            .all()
+        )
+        
+        adicionales_por_socio = {}
+        for sa in adicionales_query:
+            if sa.adicional and sa.adicional.activo:
+                if sa.id_socio not in adicionales_por_socio:
+                    adicionales_por_socio[sa.id_socio] = []
+                adicionales_por_socio[sa.id_socio].append(sa)
+                
+        print(f"⏱️ Tiempo consulta adicionales: {time.time() - t1:.2f}s")
+        t2 = time.time()
+
+        def _calcular_adicionales_rapido(socio, fecha_inicio, fecha_fin):
+            total = Decimal('0')
+            detalles = []
+            def es_valido(adicional):
+                if adicional.fecha_desde > fecha_fin: return False
+                if adicional.fecha_hasta and adicional.fecha_hasta < fecha_inicio: return False
+                return True
+
+            for sa in adicionales_por_socio.get(socio.id, []):
+                if es_valido(sa.adicional):
+                    total += sa.adicional.monto
+                    detalles.append(f"{sa.adicional.nombre} ({socio.nombre})")
+            
+            if socio.id_familia is None:
+                for familiar in socio.miembros_familia:
+                    if familiar.fecha_baja is None:
+                        for sa in adicionales_por_socio.get(familiar.id, []):
+                            if es_valido(sa.adicional):
+                                total += sa.adicional.monto
+                                detalles.append(f"{sa.adicional.nombre} ({familiar.nombre})")
+            return total, detalles
+
+        # 3. CONFIGURACIONES
+        configs = ConfiguracionCuota.query.filter(
+            ConfiguracionCuota.id_empresa == id_empresa,
+            ConfiguracionCuota.fecha_desde <= fecha_fin_mes,
+            or_(
+                ConfiguracionCuota.fecha_hasta.is_(None),
+                ConfiguracionCuota.fecha_hasta >= fecha_inicio_mes
+            )
+        ).all()
+        mapa_configs = {(c.id_tipo_socio, c.id_categoria_socio): c.monto for c in configs}
+        
+        print(f"⏱️ Tiempo consulta configs: {time.time() - t2:.2f}s")
+        t3 = time.time()
+
+        # 4. CUOTAS EXISTENTES (Optimizado para traer solo IDs)
+        socios_con_cuota = {
+            c[0] for c in db.session.query(CuotaSocial.id_socio).join(Socio).filter(
+                CuotaSocial.periodo == periodo,
+                Socio.id_empresa == id_empresa
+            ).all()
+        }
+        
+        print(f"⏱️ Tiempo consulta cuotas existentes: {time.time() - t3:.2f}s")
+        t4 = time.time()
+
         contador = 0
         errores = []
-        periodo = f"{ano}-{mes:02d}"
-        fecha_vencimiento = date(ano, mes, 10)
+        cuotas_a_insertar = []
 
-        # ChytaPay: verificar si la empresa puede usarlo
-        from app.models import Empresa
-        empresa = Empresa.query.get(id_empresa) if id_empresa else None
-
+        # 5. BUCLE EN MEMORIA (No consulta DB)
         for socio in socios_principales:
-            existe = CuotaSocial.query.filter_by(
-                id_socio=socio.id, periodo=periodo
-            ).first()
-            if existe:
+            if socio.id in socios_con_cuota:
                 continue
+                
             try:
-                # 1. Monto base (según tipo y categoría)
-                monto_base = CuotaService.obtener_monto_para_socio(socio)
+                monto_base = mapa_configs.get((socio.id_tipo_socio, socio.id_categoria_socio))
+                if not monto_base:
+                    tipo_nombre = socio.tipo_socio_rel.nombre if socio.tipo_socio_rel else socio.id_tipo_socio
+                    cat_nombre = socio.categoria_socio_rel.nombre if socio.categoria_socio_rel else socio.id_categoria_socio
+                    raise ValueError(f"No hay configuración vigente para tipo {tipo_nombre} y categoría {cat_nombre}")
                 
-                # 2. NUEVO: Calcular adicionales propios + de familiares
-                monto_adicional, detalle_adic = CuotaService.calcular_adicionales(
-                    socio, fecha_inicio_mes, fecha_fin_mes
-                )
-                
-                # 3. Total
+                monto_adicional, detalle_adic = _calcular_adicionales_rapido(socio, fecha_inicio_mes, fecha_fin_mes)
                 monto_final = monto_base + monto_adicional
                 detalle_texto = ", ".join(detalle_adic) if detalle_adic else None
 
-                cuota = CuotaSocial(
-                    id_socio=socio.id,
-                    periodo=periodo,
-                    monto=monto_final,
-                    detalle_adicionales=detalle_texto, # <-- Nuevo campo
-                    fecha_vencimiento=fecha_vencimiento,
-                    estado='pendiente'
-                )
-                db.session.add(cuota)
-                db.session.flush()
-
+                cuotas_a_insertar.append({
+                    'id_socio': socio.id,
+                    'periodo': periodo,
+                    'monto': monto_final,
+                    'detalle_adicionales': detalle_texto,
+                    'fecha_vencimiento': fecha_vencimiento,
+                    'estado': 'pendiente'
+                })
                 contador += 1
             except ValueError as e:
-                errores.append(
-                    f"Socio {socio.numero_socio} - {socio.apellido}, "
-                    f"{socio.nombre}: {str(e)}"
-                )
+                errores.append(f"Socio {socio.numero_socio} - {socio.apellido}, {socio.nombre}: {str(e)}")
                 continue
 
+        print(f"⏱️ Tiempo bucle: {time.time() - t4:.2f}s")
+        t5 = time.time()
+
+        # 6. INSERCIÓN MASIVA (Usando execute con insert de SQLAlchemy Core para máxima velocidad)
+        if cuotas_a_insertar:
+            db.session.execute(insert(CuotaSocial), cuotas_a_insertar)
         db.session.commit()
+        
+        print(f"⏱️ Tiempo inserción y commit: {time.time() - t5:.2f}s")
+        print(f"✅ TOTAL: {time.time() - t0:.2f}s")
+
         return {
             'cantidad': contador,
             'errores': errores
         }
-
+    
     @staticmethod
     def marcar_cuota_pagada(cuota_id, fecha_pago=None, metodo='manual',
                             id_cuenta=None, id_cheque=None):

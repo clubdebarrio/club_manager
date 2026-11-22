@@ -230,12 +230,13 @@ def index():
         registros_validos = []
         registros_invalidos = []
 
+        # Mapeos normalizados (clave en minúscula, valor con ID y Nombre real)
         tipos_socio_map = {
-            t.nombre: t.id
+            t.nombre.strip().lower(): {'id': t.id, 'nombre': t.nombre}
             for t in TipoSocio.query.filter_by(id_empresa=empresa.id).all()
         }
         categorias_map = {
-            c.nombre: c.id
+            c.nombre.strip().lower(): {'id': c.id, 'nombre': c.nombre}
             for c in CategoriaSocio.query.filter_by(id_empresa=empresa.id).all()
         }
         socios_existentes_nums = {
@@ -251,21 +252,25 @@ def index():
             errores = []
             datos_fila = {}
 
-            for campo in ['apellido', 'nombre', 'tipo_documento',
-                          'nro_documento', 'tipo_socio', 'categoria_socio']:
+            # Validaciones básicas de campos obligatorios
+            for campo in ['apellido', 'nombre', 'tipo_documento', 'nro_documento']:
                 valor = row.get(campo)
                 if pd.isna(valor) or str(valor).strip() == '':
                     errores.append(f'{campo} es obligatorio')
                 else:
                     datos_fila[campo] = str(valor).strip()
 
-            tipo_doc = str(row.get('tipo_documento', '')).strip()
+            tipo_doc = str(row.get('tipo_documento', '')).strip().title() # Title para "Dni" -> "DNI" falla, lo manejamos abajo
+            tipo_doc_upper = tipo_doc.upper()
+            if tipo_doc_upper in ['DNI', 'CI']:
+                tipo_doc = tipo_doc_upper
+                
             if tipo_doc and tipo_doc not in TIPOS_DOCUMENTO_VALIDOS:
                 errores.append(f'tipo_documento inválido: {tipo_doc}')
             else:
                 datos_fila['tipo_documento'] = tipo_doc
 
-            nro_doc = str(row.get('nro_documento', '')).strip()
+            nro_doc = _normalizar_int(row.get('nro_documento'))
             if nro_doc:
                 if not re.match(r'^\d+$', nro_doc):
                     errores.append('nro_documento debe contener solo números')
@@ -276,23 +281,31 @@ def index():
             else:
                 datos_fila['nro_documento'] = ''
 
-            tipo_socio_nombre = str(row.get('tipo_socio', '')).strip()
-            if tipo_socio_nombre:
-                if tipo_socio_nombre in tipos_socio_map:
-                    datos_fila['tipo_socio'] = tipo_socio_nombre
+            # --- TIPO DE SOCIO (Lógica corregida) ---
+            tipo_socio_input = str(row.get('tipo_socio', '')).strip().lower()
+            if tipo_socio_input:
+                if tipo_socio_input in tipos_socio_map:
+                    datos_fila['id_tipo_socio'] = tipos_socio_map[tipo_socio_input]['id']
+                    datos_fila['tipo_socio'] = tipos_socio_map[tipo_socio_input]['nombre']
                 else:
-                    errores.append(f'tipo_socio "{tipo_socio_nombre}" no existe')
+                    errores.append(f'tipo_socio "{row.get("tipo_socio")}" no existe')
             else:
+                errores.append('tipo_socio es obligatorio')
                 datos_fila['tipo_socio'] = ''
+                datos_fila['id_tipo_socio'] = None
 
-            categoria_nombre = str(row.get('categoria_socio', '')).strip()
-            if categoria_nombre:
-                if categoria_nombre in categorias_map:
-                    datos_fila['categoria_socio'] = categoria_nombre
+            # --- CATEGORIA SOCIO (Lógica corregida) ---
+            categoria_input = str(row.get('categoria_socio', '')).strip().lower()
+            if categoria_input:
+                if categoria_input in categorias_map:
+                    datos_fila['id_categoria_socio'] = categorias_map[categoria_input]['id']
+                    datos_fila['categoria_socio'] = categorias_map[categoria_input]['nombre']
                 else:
-                    errores.append(f'categoria_socio "{categoria_nombre}" no existe')
+                    errores.append(f'categoria_socio "{row.get("categoria_socio")}" no existe')
             else:
+                errores.append('categoria_socio es obligatorio')
                 datos_fila['categoria_socio'] = ''
+                datos_fila['id_categoria_socio'] = None
 
             email = str(row.get('email', '')).strip() if not pd.isna(row.get('email')) else ''
             if email and not re.match(r'^[^@]+@[^@]+\.[^@]+$', email):
@@ -335,8 +348,6 @@ def index():
                         if not socio_familia:
                             errores.append(f'id_familia "{id_familia_norm}" no corresponde a un socio existente')
                         else:
-                            # Guardamos el ID del socio padre (integer), no su
-                            # numero_socio (string), porque en la DB id_familia es FK.
                             datos_fila['id_familia'] = socio_familia.id
                 except ValueError:
                     errores.append('id_familia debe contener solo dígitos')
@@ -376,18 +387,14 @@ def index():
                     'nro_documento': datos_fila['nro_documento'],
                     'email': datos_fila['email'],
                     'telefono': datos_fila['telefono'],
-                    'id_tipo_socio': tipos_socio_map[datos_fila['tipo_socio']],
-                    'id_categoria_socio': categorias_map[datos_fila['categoria_socio']],
+                    'id_tipo_socio': datos_fila['id_tipo_socio'],         # <-- CORREGIDO
+                    'id_categoria_socio': datos_fila['id_categoria_socio'], # <-- CORREGIDO
                     'id_familia': datos_fila['id_familia'],
                     'fecha_alta': datos_fila['fecha_alta'],
                     'fecha_baja': datos_fila['fecha_baja'],
                     'numero_socio': datos_fila['numero_socio'],
                 }
                 registros_validos.append(registro)
-
-        session['registros_validos'] = registros_validos
-        session['registros_invalidos'] = registros_invalidos
-        session['total_filas'] = len(df)
 
         return render_template('importacion/previsualizacion.html',
                              validos=registros_validos,
@@ -400,12 +407,14 @@ def index():
 @importacion_bp.route('/confirmar', methods=['POST'])
 @requiere_editar('importacion')
 def confirmar():
+    import json
     empresa = current_empresa()
     if not empresa:
         flash('Primero debes crear un club.', 'warning')
         return redirect(url_for('main.index'))
 
-    registros_validos = session.get('registros_validos', [])
+    validos_json = request.form.get('validos_json', '[]')
+    registros_validos = json.loads(validos_json)
     if not registros_validos:
         flash('No hay registros válidos para importar.', 'warning')
         return redirect(url_for('importacion.index'))
@@ -415,7 +424,6 @@ def confirmar():
 
     for registro in registros_validos:
         try:
-            # Savepoint: si esta inserción falla, se revierte solo hasta acá
             with db.session.begin_nested():
                 if not registro.get('numero_socio'):
                     numero_socio = SocioService.generar_numero_socio(
@@ -454,10 +462,14 @@ def confirmar():
                 else:
                     fecha_baja = fecha_baja or None
 
+                # Guardamos con formato Título (Juan Pérez)
+                nombre_limpio = registro['nombre'].strip().title()
+                apellido_limpio = registro['apellido'].strip().title()
+
                 socio = Socio(
                     numero_socio=numero_socio,
-                    nombre=registro['nombre'],
-                    apellido=registro['apellido'],
+                    nombre=nombre_limpio,
+                    apellido=apellido_limpio,
                     tipo_documento=registro['tipo_documento'],
                     nro_documento=registro['nro_documento'],
                     email=registro.get('email'),
@@ -495,18 +507,16 @@ def confirmar():
         db.session.rollback()
         flash(f'Error al guardar los datos: {str(e)}', 'danger')
 
-    session.pop('registros_validos', None)
-    session.pop('registros_invalidos', None)
-    session.pop('total_filas', None)
-
     return redirect(url_for('socios.listar'))
 
 
-@importacion_bp.route('/descargar-reporte')
+@importacion_bp.route('/descargar-reporte', methods=['POST'])
 @requiere_ver('importacion')
 def descargar_reporte():
+    import json
     """Genera un archivo Excel con los registros inválidos y sus errores."""
-    invalidos = session.get('registros_invalidos', [])
+    invalidos_json = request.form.get('invalidos_json', '[]')
+    invalidos = json.loads(invalidos_json)
     if not invalidos:
         flash('No hay registros inválidos para descargar.', 'warning')
         return redirect(url_for('importacion.index'))

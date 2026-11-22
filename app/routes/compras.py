@@ -883,7 +883,7 @@ def importar_productos():
         registros_validos = []
         registros_invalidos = []
         productos_existentes = {
-            p.nombre.lower(): p
+            p.nombre.strip().lower(): p
             for p in Producto.query.filter_by(id_empresa=empresa.id).all()
         }
 

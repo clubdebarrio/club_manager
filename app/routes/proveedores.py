@@ -73,7 +73,7 @@ def nueva():
     form = ProveedorForm()
     if form.validate_on_submit():
         prov = Proveedor(
-            nombre=form.nombre.data.strip(),
+            nombre=form.nombre.data.strip().title(),
             cuit=(form.cuit.data or '').strip() or None,
             condicion_iva=form.condicion_iva.data or None,
             direccion=(form.direccion.data or '').strip() or None,
@@ -202,7 +202,7 @@ def editar(id):
             'telefono': prov.telefono,
             'activo': prov.activo,
         }        
-        prov.nombre = form.nombre.data.strip()
+        prov.nombre = form.nombre.data.strip().title()
         prov.cuit = (form.cuit.data or '').strip() or None
         prov.condicion_iva = form.condicion_iva.data or None
         prov.direccion = (form.direccion.data or '').strip() or None
