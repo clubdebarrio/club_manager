@@ -18,6 +18,10 @@ def procesar_chytapay_pendientes():
     secret = current_app.config.get('CRON_SECRET', '')
     token = request.headers.get('Authorization')
     
+    # ESTO ES PARA DEBUGGEAR:
+    print(f"DEBUG: Secreto en Vercel: '{secret}'")
+    print(f"DEBUG: Token recibido de GitHub: '{token}'")
+    
     if not secret or token != f'Bearer {secret}':
         return jsonify({'error': 'No autorizado'}), 401
 
