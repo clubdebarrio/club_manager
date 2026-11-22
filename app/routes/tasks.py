@@ -15,13 +15,14 @@ def procesar_chytapay_pendientes():
     Procesa de a 8 por vez para no dar Timeout en Vercel.
     """
     # 1. Seguridad: Verificar token secreto
-    secret = current_app.config.get('CRON_SECRET', '')
-    token = request.headers.get('Authorization')
+    secret = current_app.config.get('CRON_SECRET', '').strip()
+    token = request.headers.get('Authorization', '').strip()
     
-    # ESTO ES PARA DEBUGGEAR:
-    print(f"DEBUG: Secreto en Vercel: '{secret}'")
-    print(f"DEBUG: Token recibido de GitHub: '{token}'")
+    # Esto nos va a decir EXACTAMENTE qué está llegando desde GitHub
+    print(f"DEBUG VERCEL -> Secreto en Vercel: '{secret}'")
+    print(f"DEBUG VERCEL -> Token recibido de GitHub: '{token}'")
     
+    # Comparamos limpiando espacios
     if not secret or token != f'Bearer {secret}':
         return jsonify({'error': 'No autorizado'}), 401
 
