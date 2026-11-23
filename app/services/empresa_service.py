@@ -133,4 +133,16 @@ class EmpresaService:
                 id_empresa=empresa.id, id_cuenta_contable=plan_cartera.id,
             ))
 
+        # ---------- 7. Rol Cobrador ----------
+        from app.models import Rol
+        rol_cobrador = Rol(
+            nombre='Cobrador',
+            id_empresa=empresa.id,
+            activo=True
+        )
+        # Le damos permisos básicos (ver socios y cobrar). 
+        # Asegurate de tener estos permisos creados en permisos.py
+        rol_cobrador.set_permisos(['socios.ver', 'cuotas.ver', 'cobros.ver', 'cobros.editar'])
+        db.session.add(rol_cobrador)
+
         return {'empresa': empresa, 'admin': admin}

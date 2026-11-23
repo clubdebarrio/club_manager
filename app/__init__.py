@@ -159,7 +159,11 @@ def create_app(config_class=Config):
     app.register_blueprint(sistema_bp)
 
     from app.routes.tasks import tasks_bp
-    app.register_blueprint(tasks_bp)    
+    app.register_blueprint(tasks_bp)
+
+    from app.routes.cobros import cobros_bp
+    app.register_blueprint(cobros_bp)
+    
     
     # ---- Protección global: exige inicio de sesión ----
     ENDPOINTS_PUBLICOS = {

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Liquidaciones de Cobradores{% endblock %}
+
+{% block content %}
+<div class="page-head">
+    <h1>Rendiciones Pendientes</h1>
+    <p class="sub">Controlá el efectivo y aprobá o rechazá las liquidaciones.</p>
+</div>
+
+<div class="row">
+    {% for liq in liquidaciones %}
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm border-{{ 'warning' if liq.estado == 'presentada' else 'danger' }}">
+            <div class="card-header bg-{{ 'warning' if liq.estado == 'presentada' else 'danger' }} text-{{ 'dark' if liq.estado == 'presentada' else 'white' }} d-flex justify-content-between">
+                <strong>Liquidación #{{ liq.id }} ({{ liq.estado|upper }})</strong>
+                <span>{{ liq.fecha_creacion|localdatetime }}</span>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Cobrador: {{ liq.cobrador.nombre }}</h5>
+                <p class="fs-4 fw-bold text-success">{{ liq.monto_total|pesos }}</p>
+                
+                {% if liq.estado == 'rechazada' %}
+                <div class="alert alert-danger py-2">
+                    <strong>Motivo de rechazo:</strong> {{ liq.observaciones }}
+                </div>
+                {% endif %}
+
+                <p><strong>Detalle de cuotas ({{ liq.detalles|length }}):</strong></p>
+                <ul class="small text-muted" style="max-height: 150px; overflow-y: auto;">
+                    {% for det in liq.detalles %}
+                    <li>{{ det.cuota.socio.apellido }} ({{ det.cuota.periodo }}): {{ det.monto_cobrado|pesos }}</li>
+                    {% endfor %}
+                </ul>
+                
+                {% if liq.estado == 'presentada' %}
+                <div class="d-flex gap-2 mt-3">
+                    <form method="POST" action="{{ url_for('cobros.aprobar_liquidacion', id=liq.id) }}" class="w-50">
+                        <button type="submit" class="btn btn-success w-100" onclick="return confirm('¿Confirmás que recibiste el efectivo y querés asentar la rendición?')">
+                            <i class="fas fa-check-circle"></i> Aprobar
+                        </button>
+                    </form>
+                    
+                    <button type="button" class="btn btn-danger w-50" data-bs-toggle="modal" data-bs-target="#modalRechazar{{ liq.id }}">
+                        <i class="fas fa-times-circle"></i> Rechazar
+                    </button>
+                </div>
+
+                <!-- Modal de Rechazo -->
+                <div class="modal fade" id="modalRechazar{{ liq.id }}" tabindex="-1" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="POST" action="{{ url_for('cobros.rechazar_liquidacion', id=liq.id) }}">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Rechazar Rendición #{{ liq.id }}</h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Indicá el motivo del rechazo para que el cobrador pueda corregirlo.</p>
+                                    <textarea name="motivo" class="form-control" rows="3" required placeholder="Ej: Falta el efectivo de la cuota de Juan Pérez, el monto no coincide..."></textarea>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-danger">Confirmar Rechazo</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="alert alert-success">No hay rendiciones pendientes de aprobación.</div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

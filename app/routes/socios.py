@@ -13,6 +13,7 @@ from sqlalchemy import func
 from app.services.reporte_service import ReporteService
 from app.decorators import requiere_ver, requiere_editar
 from app.auditoria import auditar
+from app.models import Rol, Usuario
 import io
 from app.services.foto_socio_service import FotoSocioService
 
@@ -99,6 +100,18 @@ def crear():
         (f.id, f"{f.numero_socio} - {f.apellido}, {f.nombre}") for f in familias
     ]
 
+    # Buscamos el rol Cobrador
+    rol_cobrador = Rol.query.filter_by(nombre='Cobrador', id_empresa=empresa.id).first()
+    
+    # Cargamos los usuarios que tienen ese rol
+    cobradores = []
+    if rol_cobrador:
+        cobradores = Usuario.query.filter_by(id_rol=rol_cobrador.id, id_empresa=empresa.id, activo=True).all()
+        
+    form.id_cobrador.choices = [(0, 'Sin cobrador (Paga por su cuenta)')] + [
+        (c.id, f"{c.nombre}") for c in cobradores
+    ]
+    
     if form.validate_on_submit():
         nuevo_socio = Socio(
             nombre=form.nombre.data.strip().title(),
@@ -116,12 +129,17 @@ def crear():
             id_familia=form.id_familia.data if form.id_familia.data else None,
             id_empresa=empresa.id,
             enviar_cuota_whatsapp=form.enviar_cuota_whatsapp.data,
+            id_cobrador=form.id_cobrador.data if form.id_cobrador.data and form.id_cobrador.data != 0 else None,
             fecha_nacimiento=form.fecha_nacimiento.data,
         )
+        if form.id_cobrador.data and form.id_cobrador.data != 0:
+            if form.enviar_cuota_whatsapp.data:
+                flash('Advertencia: Asignaste un cobrador pero también activaste el envío por WhatsApp. Se recomienda elegir solo uno para evitar cobros duplicados.', 'warning')
+    
         db.session.add(nuevo_socio)
-        db.session.flush() # <-- Necesario para obtener el ID del socio
+        db.session.flush() 
 
-        # NUEVO: Guardar adicionales seleccionados
+        # Guardar adicionales seleccionados
         if form.adicionales.data:
             for id_ad in form.adicionales.data:
                 db.session.add(SocioAdicional(
@@ -193,6 +211,18 @@ def editar(id):
             sa.id_adicional for sa in socio.adicionales_asignados if sa.activo
         ]
 
+    # Buscamos el rol Cobrador
+    rol_cobrador = Rol.query.filter_by(nombre='Cobrador', id_empresa=empresa.id).first()
+    
+    # Cargamos los usuarios que tienen ese rol
+    cobradores = []
+    if rol_cobrador:
+        cobradores = Usuario.query.filter_by(id_rol=rol_cobrador.id, id_empresa=empresa.id, activo=True).all()
+        
+    form.id_cobrador.choices = [(0, 'Sin cobrador (Paga por su cuenta)')] + [
+        (c.id, f"{c.nombre}") for c in cobradores
+    ]
+    
     if form.validate_on_submit():
         # Snapshot antes
         estado_antes = {
@@ -206,8 +236,12 @@ def editar(id):
             'id_categoria_socio': socio.id_categoria_socio,
             'id_familia': socio.id_familia,
             'enviar_cuota_whatsapp': socio.enviar_cuota_whatsapp,
+            'id_cobrador': socio.id_cobrador,
             'fecha_nacimiento': socio.fecha_nacimiento.isoformat() if socio.fecha_nacimiento else None,
         }
+        if form.id_cobrador.data and form.id_cobrador.data != 0:
+            if form.enviar_cuota_whatsapp.data:
+                flash('Advertencia: Asignaste un cobrador pero también activaste el envío por WhatsApp. Se recomienda elegir solo uno para evitar cobros duplicados.', 'warning')
 
         socio.nombre = form.nombre.data
         socio.apellido = form.apellido.data
@@ -219,6 +253,7 @@ def editar(id):
         socio.id_categoria_socio = form.id_categoria_socio.data
         socio.id_familia = form.id_familia.data if form.id_familia.data else None
         socio.enviar_cuota_whatsapp = form.enviar_cuota_whatsapp.data
+        socio.id_cobrador = form.id_cobrador.data if form.id_cobrador.data and form.id_cobrador.data != 0 else None 
         socio.fecha_nacimiento = form.fecha_nacimiento.data
 
         # NUEVO: Actualizar Adicionales (Opción de baja con fecha)

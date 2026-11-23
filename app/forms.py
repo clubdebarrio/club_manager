@@ -41,7 +41,8 @@ class SocioForm(FlaskForm):
     id_categoria_socio = SelectField('Categoría', coerce=int, validators=[DataRequired()])
     id_familia = SelectField('Socio Principal (si es familiar)', coerce=int, validators=[Optional()])
     id_empresa = HiddenField('ID de Empresa', validators=[DataRequired()])
-    enviar_cuota_whatsapp = BooleanField('Enviar cuota por WhatsApp al generar', default=False)  # <--- NUEVO
+    enviar_cuota_whatsapp = BooleanField('Enviar cuota por WhatsApp al generar', default=False)
+    id_cobrador = SelectField('Cobrador asignado', coerce=int, validators=[Optional()]) 
     adicionales = SelectMultipleField(
         'Adicionales y Actividades', 
         coerce=int, 

@@ -221,6 +221,8 @@ class Socio(db.Model):
     foto_actualizada_at = db.Column(db.DateTime, nullable=True)    
     empresa = db.relationship('Empresa', back_populates='socios')
     familia = db.relationship('Socio', remote_side=[id], backref='miembros_familia')
+    id_cobrador = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=True)
+    cobrador = db.relationship('Usuario', foreign_keys=[id_cobrador])    
 
     __table_args__ = (
         db.UniqueConstraint('id_empresa', 'numero_socio',
@@ -1126,3 +1128,27 @@ class SocioAdicional(db.Model):
     __table_args__ = (
         db.UniqueConstraint('id_socio', 'id_adicional', name='uq_socio_adicional'),
     )
+
+class LiquidacionCobrador(db.Model):
+    __tablename__ = 'liquidaciones_cobrador'
+    id = db.Column(db.Integer, primary_key=True)
+    id_empresa = db.Column(db.Integer, db.ForeignKey('empresa.id'), nullable=False)
+    id_cobrador = db.Column(db.Integer, db.ForeignKey('usuarios.id'), nullable=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_aprobacion = db.Column(db.DateTime, nullable=True)
+    estado = db.Column(db.String(20), default='borrador') # borrador, presentada, aprobada, rechazada
+    monto_total = db.Column(db.Numeric(10, 2), nullable=False)
+    observaciones = db.Column(db.String(300), nullable=True)
+
+    cobrador = db.relationship('Usuario', foreign_keys=[id_cobrador])
+    empresa = db.relationship('Empresa')
+    detalles = db.relationship('DetalleLiquidacion', backref='liquidacion', cascade='all, delete-orphan')
+
+class DetalleLiquidacion(db.Model):
+    __tablename__ = 'detalle_liquidacion'
+    id = db.Column(db.Integer, primary_key=True)
+    id_liquidacion = db.Column(db.Integer, db.ForeignKey('liquidaciones_cobrador.id'), nullable=False)
+    id_cuota = db.Column(db.Integer, db.ForeignKey('cuota_social.id'), nullable=False)
+    monto_cobrado = db.Column(db.Numeric(10, 2), nullable=False)
+
+    cuota = db.relationship('CuotaSocial')

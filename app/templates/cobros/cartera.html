@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Mi Cartera{% endblock %}
+
+{% block content %}
+<div class="page-head sticky-top bg-white pb-2 shadow-sm" style="z-index: 100;">
+    <h1>Mi Cartera</h1>
+    <input type="text" id="buscador-socios" class="form-control form-control-lg mt-2" placeholder="Buscar por apellido o DNI...">
+</div>
+
+<form method="POST" action="{{ url_for('cobros.presentar_liquidacion') }}">
+    <div class="row g-3 mt-2" id="lista-socios">
+        {% for item in socios_data %}
+        <div class="col-md-6 col-lg-4 socio-card" data-nombre="{{ item.socio.apellido|lower }} {{ item.socio.nombre|lower }}" data-dni="{{ item.socio.nro_documento }}">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">{{ item.socio.apellido }}, {{ item.socio.nombre }}</h5>
+                    <small class="text-white-50"><i class="fas fa-id-card"></i> {{ item.socio.nro_documento }}</small>
+                </div>
+                <div class="card-body p-2">
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-map-marker-alt"></i> {{ item.socio.direccion or 'Sin dirección' }}
+                    </p>
+                    <div class="list-group list-group-flush mb-2">
+                        {% for c in item.cuotas %}
+                        <label class="list-group-item d-flex justify-content-between align-items-center p-2 cuota-item">
+                            <div>
+                                <input class="form-check-input chk-cuota me-2" type="checkbox" name="cuotas" value="{{ c.id }}" data-monto="{{ c.monto }}">
+                                <span class="fw-bold">{{ c.periodo }}</span>
+                            </div>
+                            <span class="badge bg-primary rounded-pill">{{ c.monto|pesos }}</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">No tenés socios con cuotas pendientes asignados.</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="fixed-bottom bg-dark text-white p-3 shadow-lg d-flex justify-content-between align-items-center" id="barra-cobro" style="display: none;">
+        <div>
+            <small class="d-block text-muted">Total seleccionado:</small>
+            <span class="fs-4 fw-bold" id="monto-seleccionado">$0.00</span>
+        </div>
+        <button type="submit" class="btn btn-success btn-lg">
+            <i class="fas fa-hand-holding-dollar"></i> Presentar
+        </button>
+    </div>
+</form>
+
+<!-- HISTORIAL DE RENDICIONES -->
+<div class="mt-5 mb-5">
+    <h3 class="border-bottom pb-2">Mis Rendiciones</h3>
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Monto</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for liq in mis_liquidaciones %}
+                <tr>
+                    <td>{{ liq.fecha_creacion|localdatetime }}</td>
+                    <td class="fw-bold">{{ liq.monto_total|pesos }}</td>
+                    <td>
+                        {% if liq.estado == 'aprobada' %}
+                            <span class="badge bg-success">Aprobada</span>
+                        {% elif liq.estado == 'rechazada' %}
+                            <span class="badge bg-danger">Rechazada</span>
+                            <br><small class="text-danger">{{ liq.observaciones }}</small>
+                        {% else %}
+                            <span class="badge bg-warning text-dark">Presentada</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if liq.estado in ('borrador', 'presentada') %}
+                        <form method="POST" action="{{ url_for('cobros.eliminar_liquidacion', id=liq.id) }}" class="d-inline" onsubmit="return confirm('¿Eliminar esta rendición? Las cuotas volverán a aparecer en tu cartera.')">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="fas fa-trash"></i> Eliminar
+                            </button>
+                        </form>
+                        {% else %}
+                        <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center text-muted">No tenés rendiciones registradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buscador = document.getElementById('buscador-socios');
+    const tarjetas = document.querySelectorAll('.socio-card');
+
+    buscador.addEventListener('input', function() {
+        const texto = this.value.toLowerCase();
+        tarjetas.forEach(tarjeta => {
+            const nombre = tarjeta.dataset.nombre;
+            const dni = tarjeta.dataset.dni;
+            if (nombre.includes(texto) || dni.includes(texto)) {
+                tarjeta.style.display = '';
+            } else {
+                tarjeta.style.display = 'none';
+            }
+        });
+        actualizarTotal(); // Recalcular si se ocultan tildados
+    });
+
+    const barraCobro = document.getElementById('barra-cobro');
+    const montoSpan = document.getElementById('monto-seleccionado');
+    
+    function actualizarTotal() {
+        let total = 0;
+        let checkeados = 0;
+        
+        document.querySelectorAll('.chk-cuota:checked').forEach(chk => {
+            if (chk.closest('.socio-card').style.display !== 'none') {
+                const monto = parseFloat(chk.dataset.monto);
+                total += monto;
+                checkeados++;
+            }
+        });
+        
+        montoSpan.textContent = '$' + total.toLocaleString('es-AR', { minimumFractionDigits: 2 });
+        barraCobro.style.display = checkeados > 0 ? 'flex' : 'none';
+    }
+
+    document.querySelectorAll('.chk-cuota').forEach(chk => {
+        chk.addEventListener('change', actualizarTotal);
+    });
+});
+</script>
+{% endblock %}

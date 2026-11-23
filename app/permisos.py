@@ -25,7 +25,8 @@ MODULOS_DISPONIBLES = [
     ('contabilidad',  'Contabilidad'),
     ('importacion',   'Importación de datos'),
     ('configuracion', 'Configuración de socios'),
-    ('auditoria',     'Auditoría'),   
+    ('auditoria',     'Auditoría'),
+    ('cobros',        'Cobranzas / Cartera'),
 ]
 
 

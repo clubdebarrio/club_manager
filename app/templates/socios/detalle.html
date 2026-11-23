@@ -55,6 +55,8 @@
                     <dd>{{ socio.email or '-' }}</dd>
                     <dt>Teléfono</dt>
                     <dd>{{ socio.telefono or '-' }}</dd>
+                    <dt>Cobrador</dt>
+                    <dd>{{ socio.cobrador.nombre if socio.cobrador else '-' }}</dd>
                 </dl>
                 <dl class="detail-list">
                     <dt>Tipo de Socio</dt>

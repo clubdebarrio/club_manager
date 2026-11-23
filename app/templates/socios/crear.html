@@ -117,6 +117,12 @@
             {% endif %}
         </div>
 
+        <div class="col-md-6">
+            {{ form.id_cobrador.label(class="form-label") }}
+            {{ form.id_cobrador(class="form-select") }}
+            <small class="form-text text-muted">Si asignás un cobrador, asegurate de no cobrar por WhatsApp para evitar duplicados.</small>
+        </div>
+        
         <h2 class="section-title mt-4"><i class="fas fa-tags" aria-hidden="true"></i> Clasificación</h2>
         <p class="section-sub">Tipo y categoría del socio dentro del padrón.</p>
 

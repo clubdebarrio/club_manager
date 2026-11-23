@@ -115,6 +115,15 @@
               </li>
               {% endif %}
 
+              <!-- COBROS (Visible para el cobrador) -->
+              {% if u and u.puede_ver('cobros') %}
+              <li class="nav-item">
+                  <a class="nav-link {{ 'is-active' if request.blueprint == 'cobros' else '' }}" href="{{ url_for('cobros.mi_cartera') }}">
+                      <i class="fas fa-hand-holding-dollar leading" aria-hidden="true"></i>Mi Cartera
+                  </a>
+              </li>
+              {% endif %}
+
               <!-- SOCIOS (dropdown) -->
               {% set ver_socios = u and u.puede_ver('socios') %}
               {% set ver_cuotas = u and u.puede_ver('cuotas') %}
@@ -138,16 +147,25 @@
                     </a>
                   </li>
                   {% endif %}
+                  
                   {% if ver_cuotas %}
                   <li>
                     <a class="dropdown-item" href="{{ url_for('cuotas.listar') }}">
                       <i class="fas fa-receipt me-1" aria-hidden="true"></i>Cuotas
                     </a>
                   </li>
+                  <!-- AGREGADO: Rendiciones de cobradores para el admin -->
+                  <li>
+                      <a class="dropdown-item" href="{{ url_for('cobros.admin_liquidaciones') }}">
+                          <i class="fas fa-hand-holding-dollar me-1"></i> Rendiciones de Cobradores
+                      </a>
+                  </li>
                   {% endif %}
+
                   {% if ver_socios and ver_config %}
                   <li><hr class="dropdown-divider" /></li>
                   {% endif %}
+                  
                   {% if ver_config %}
                   <li>
                     <a class="dropdown-item" href="{{ url_for('config.listar_tipos') }}">
