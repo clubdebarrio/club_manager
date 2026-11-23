@@ -403,6 +403,11 @@
                   </li>
                   <li><hr class="dropdown-divider" /></li>
                   <li>
+                      <a class="dropdown-item" href="{{ url_for('auth.cambiar_password') }}">
+                          <i class="fas fa-key me-1" aria-hidden="true"></i>Cambiar contraseña
+                      </a>
+                  </li>                  
+                  <li>
                     <form action="{{ url_for('auth.logout') }}" method="post" class="m-0">
                       <button type="submit" class="dropdown-item">
                         <i class="fas fa-arrow-right-from-bracket me-1" aria-hidden="true"></i>Salir

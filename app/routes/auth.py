@@ -4,6 +4,8 @@ from flask import (
     Blueprint, render_template, redirect, url_for, session, flash, request,
 )
 from app.forms import LoginForm
+from app.forms import LoginForm, CambiarPasswordForm
+from app.decorators import cargar_usuario_actual
 from app.models import Usuario
 from app import db, limiter
 from app.auditoria import auditar
@@ -148,3 +150,25 @@ def logout():
     db.session.commit()
     flash('Sesión cerrada correctamente.', 'info')
     return redirect(url_for('auth.login'))
+
+
+@auth_bp.route('/cambiar-password', methods=['GET', 'POST'])
+@login_required
+def cambiar_password():
+    usuario = cargar_usuario_actual()
+    form = CambiarPasswordForm()
+    
+    if form.validate_on_submit():
+        if not usuario.check_password(form.password_actual.data):
+            flash('La contraseña actual es incorrecta.', 'danger')
+            return render_template('auth/cambiar_password.html', form=form)
+            
+        usuario.set_password(form.password_nuevo.data)
+        db.session.commit()
+        
+        auditar('editar', 'Usuario', usuario.id, nota='El usuario cambió su propia contraseña')
+        
+        flash('¡Tu contraseña se actualizó correctamente!', 'success')
+        return redirect(url_for('main.index'))
+        
+    return render_template('auth/cambiar_password.html', form=form)

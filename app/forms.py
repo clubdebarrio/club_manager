@@ -741,3 +741,18 @@ class AdicionalForm(FlaskForm):
     fecha_desde = DateField('Vigencia Desde', validators=[DataRequired()])
     fecha_hasta = DateField('Vigencia Hasta (opcional)', validators=[Optional()])
     activo = BooleanField('Activo', default=True)
+
+class CambiarPasswordForm(FlaskForm):
+    password_actual = PasswordField(
+        'Contraseña Actual', 
+        validators=[DataRequired()]
+    )
+    password_nuevo = PasswordField(
+        'Nueva Contraseña', 
+        validators=[DataRequired(), Length(min=6, message='Mínimo 6 caracteres.')]
+    )
+    confirmar_password = PasswordField(
+        'Repetir Nueva Contraseña', 
+        validators=[DataRequired(), EqualTo('password_nuevo', message='Las contraseñas no coinciden.')]
+    )
+    submit = SubmitField('Actualizar Contraseña')
