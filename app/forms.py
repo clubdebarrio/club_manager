@@ -36,6 +36,7 @@ class SocioForm(FlaskForm):
     nro_documento = StringField('Número de Documento', validators=[DataRequired(), Length(max=20)])
     email = EmailField('Email', validators=[Optional(), Email(), Length(max=100)])
     telefono = StringField('Teléfono', validators=[Length(max=20)])
+    fecha_nacimiento = DateField('Fecha de Nacimiento', validators=[Optional()])
     id_tipo_socio = SelectField('Tipo de Socio', coerce=int, validators=[DataRequired()])
     id_categoria_socio = SelectField('Categoría', coerce=int, validators=[DataRequired()])
     id_familia = SelectField('Socio Principal (si es familiar)', coerce=int, validators=[Optional()])

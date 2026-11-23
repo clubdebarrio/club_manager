@@ -49,6 +49,8 @@
                     <dd>{{ socio.nombre }}</dd>
                     <dt>Documento</dt>
                     <dd>{{ socio.tipo_documento }}: {{ socio.nro_documento }}</dd>
+                    <dt>Fecha de Nacimiento</dt>
+                    <dd>{{ socio.fecha_nacimiento.strftime('%d/%m/%Y') if socio.fecha_nacimiento else '-' }}</dd>                    
                     <dt>Email</dt>
                     <dd>{{ socio.email or '-' }}</dd>
                     <dt>Teléfono</dt>

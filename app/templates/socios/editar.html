@@ -144,6 +144,13 @@
                     <div class="invalid-feedback">{{ error }}</div>
                 {% endfor %}
             </div>
+            <div class="col-md-6">
+                {{ form.fecha_nacimiento.label(class="form-label") }}
+                {{ form.fecha_nacimiento(class="form-control" + (" is-invalid" if form.fecha_nacimiento.errors else "")) }}
+                {% for error in form.fecha_nacimiento.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                {% endfor %}
+            </div>            
             <div class="col-md-4">
                 {{ form.telefono.label(class="form-label") }}
                 {{ form.telefono(class="form-control" + (" is-invalid" if form.telefono.errors else "")) }}

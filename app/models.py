@@ -212,6 +212,7 @@ class Socio(db.Model):
     telefono = db.Column(db.String(20))
     fecha_alta = db.Column(db.DateTime, default=datetime.utcnow)
     fecha_baja = db.Column(db.DateTime, nullable=True)
+    fecha_nacimiento = db.Column(db.Date, nullable=True) 
     id_tipo_socio = db.Column(db.Integer, db.ForeignKey('tipo_socio.id'), nullable=False)
     id_categoria_socio = db.Column(db.Integer, db.ForeignKey('categoria_socio.id'), nullable=False)
     id_familia = db.Column(db.Integer, db.ForeignKey('socios.id'), nullable=True)

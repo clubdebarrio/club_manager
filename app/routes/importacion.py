@@ -30,7 +30,7 @@ importacion_bp = Blueprint('importacion', __name__, url_prefix='/importacion')
 
 CAMPOS_ESPERADOS = [
     'numero_socio', 'apellido', 'nombre', 'tipo_documento', 'nro_documento',
-    'email', 'telefono', 'tipo_socio', 'categoria_socio', 'id_familia',
+    'fecha_nacimiento', 'email', 'telefono', 'tipo_socio', 'categoria_socio', 'id_familia',
     'fecha_alta', 'fecha_baja'
 ]
 
@@ -59,7 +59,7 @@ def descargar_plantilla():
 
     headers = [
         'numero_socio', 'apellido', 'nombre', 'tipo_documento', 'nro_documento',
-        'email', 'telefono', 'tipo_socio', 'categoria_socio', 'id_familia',
+        'fecha_nacimiento', 'email', 'telefono', 'tipo_socio', 'categoria_socio', 'id_familia',
         'fecha_alta', 'fecha_baja'
     ]
 
@@ -281,6 +281,15 @@ def index():
             else:
                 datos_fila['nro_documento'] = ''
 
+            fecha_nac = row.get('fecha_nacimiento')
+            if not pd.isna(fecha_nac) and fecha_nac is not None:
+                if hasattr(fecha_nac, 'strftime'):
+                    datos_fila['fecha_nacimiento'] = fecha_nac.strftime('%Y-%m-%d')
+                else:
+                    datos_fila['fecha_nacimiento'] = str(fecha_nac)
+            else:
+                datos_fila['fecha_nacimiento'] = None
+
             # --- TIPO DE SOCIO (Lógica corregida) ---
             tipo_socio_input = str(row.get('tipo_socio', '')).strip().lower()
             if tipo_socio_input:
@@ -385,10 +394,11 @@ def index():
                     'nombre': datos_fila['nombre'],
                     'tipo_documento': datos_fila['tipo_documento'],
                     'nro_documento': datos_fila['nro_documento'],
+                    'fecha_nacimiento': datos_fila['fecha_nacimiento'],
                     'email': datos_fila['email'],
                     'telefono': datos_fila['telefono'],
-                    'id_tipo_socio': datos_fila['id_tipo_socio'],         # <-- CORREGIDO
-                    'id_categoria_socio': datos_fila['id_categoria_socio'], # <-- CORREGIDO
+                    'id_tipo_socio': datos_fila['id_tipo_socio'],
+                    'id_categoria_socio': datos_fila['id_categoria_socio'],
                     'id_familia': datos_fila['id_familia'],
                     'fecha_alta': datos_fila['fecha_alta'],
                     'fecha_baja': datos_fila['fecha_baja'],
@@ -438,6 +448,13 @@ def confirmar():
                             f"Número de socio {numero_socio} ya existe."
                         )
 
+                fecha_nac = registro.get('fecha_nacimiento')
+                if fecha_nac and isinstance(fecha_nac, str):
+                    try:
+                        fecha_nac = datetime.strptime(fecha_nac, '%Y-%m-%d').date()
+                    except ValueError:
+                        fecha_nac = None
+
                 fecha_alta = registro.get('fecha_alta')
                 if fecha_alta and isinstance(fecha_alta, str):
                     try:
@@ -472,6 +489,7 @@ def confirmar():
                     apellido=apellido_limpio,
                     tipo_documento=registro['tipo_documento'],
                     nro_documento=registro['nro_documento'],
+                    fecha_nacimiento=fecha_nac,
                     email=registro.get('email'),
                     telefono=registro.get('telefono'),
                     id_tipo_socio=registro['id_tipo_socio'],

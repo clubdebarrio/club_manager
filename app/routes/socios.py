@@ -116,6 +116,7 @@ def crear():
             id_familia=form.id_familia.data if form.id_familia.data else None,
             id_empresa=empresa.id,
             enviar_cuota_whatsapp=form.enviar_cuota_whatsapp.data,
+            fecha_nacimiento=form.fecha_nacimiento.data,
         )
         db.session.add(nuevo_socio)
         db.session.flush() # <-- Necesario para obtener el ID del socio
@@ -205,6 +206,7 @@ def editar(id):
             'id_categoria_socio': socio.id_categoria_socio,
             'id_familia': socio.id_familia,
             'enviar_cuota_whatsapp': socio.enviar_cuota_whatsapp,
+            'fecha_nacimiento': socio.fecha_nacimiento.isoformat() if socio.fecha_nacimiento else None,
         }
 
         socio.nombre = form.nombre.data
@@ -217,6 +219,7 @@ def editar(id):
         socio.id_categoria_socio = form.id_categoria_socio.data
         socio.id_familia = form.id_familia.data if form.id_familia.data else None
         socio.enviar_cuota_whatsapp = form.enviar_cuota_whatsapp.data
+        socio.fecha_nacimiento = form.fecha_nacimiento.data
 
         # NUEVO: Actualizar Adicionales (Opción de baja con fecha)
         seleccionados = set(form.adicionales.data or [])

@@ -11,6 +11,6 @@ backup_keys/
 *.dump.age
 *.sha256
 .env.local
-
 .env.supabase
 backups_supabase/
+.venv/
